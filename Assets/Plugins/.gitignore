@@ -1,0 +1,8 @@
+*.dll
+*.so
+*.meta
+bin/
+lib/
+include/
+share/
+
