@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.24)
+cmake_minimum_required(VERSION 3.22)
 project(UnityLib)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -15,10 +15,12 @@ ExternalProject_Add(
 find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIRS})
 
-
 add_library(UnityLib SHARED library.cpp)
 target_link_libraries(UnityLib ${CMAKE_INSTALL_PREFIX}/lib/libompl.so)
 target_include_directories(UnityLib PRIVATE ${CMAKE_INSTALL_PREFIX}/include/ompl-1.6)
+set_target_properties(UnityLib PROPERTIES INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
+
+
 
 install(TARGETS UnityLib
         LIBRARY DESTINATION lib

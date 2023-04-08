@@ -68,11 +68,11 @@ public class CPPBehavior : MonoBehaviour
 
          if (valid)
          {
-             Debug.Log("No intersect ");
+            // Debug.Log("No intersect ");
          }
          else
          {
-             Debug.Log("Intersect ");
+             // Debug.Log("Intersect ");
          }
 
          
@@ -95,8 +95,10 @@ public class CPPBehavior : MonoBehaviour
         Marshal.StructureToPtr(goal, goalPtr, false);
         Marshal.StructureToPtr(stateStruct, statePtr, false);
         
+        Debug.Log("Starting Plan");
         RRTSearch(goalPtr, statePtr, cb);
         int o = 0;
+        Debug.Log("Done Plan");
     }
 
     void Start()
