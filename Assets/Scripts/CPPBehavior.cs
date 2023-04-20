@@ -46,6 +46,8 @@ public class CPPBehavior : MonoBehaviour
     {
         stateStruct = (Vec3Struct) Marshal.PtrToStructure(statePtr, typeof(Vec3Struct));
         Vector3 state = new Vector3(stateStruct.x, stateStruct.y, stateStruct.z);
+        robotCollider.transform.position = state;
+        
         float robotRadius = 2.0f;
         bool valid = true;
         Collider[] colliders = Physics.OverlapSphere(state, robotRadius);
