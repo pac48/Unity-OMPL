@@ -34,6 +34,7 @@ public class UnityOMPLInterface
     private IntPtr statePtr;
     private IntPtr handle;
     private IntPtr pathPtr;
+    private int pathLen;
     private IsStateValidDelegate cb;
     private GameObject gameObject;
     private Func<Vector3, bool> IsStateValidExtern;
@@ -42,6 +43,8 @@ public class UnityOMPLInterface
         gameObject = gameObjectIn;
         goalPtr = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(Goal)));
         statePtr = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(Vec3Struct)));
+        pathPtr = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(Vec3Struct)));
+        pathLen = 0;
         cb = new IsStateValidDelegate(IsStateValid);
         IsStateValidExtern = IsStateValidExternIn;
         handle = Init();
@@ -62,7 +65,21 @@ public class UnityOMPLInterface
         Marshal.StructureToPtr(stateStruct, statePtr, false);
         
         Vector3 tmp = gameObject.transform.position;
-        bool solved = RRTSearch(handle, goalPtr, statePtr, cb, ref pathPtr);
+        bool solved = RRTSearch(handle, goalPtr, statePtr, cb, ref pathPtr, ref pathLen);
+        List<Vec3Struct> path = new List<Vec3Struct>();
+        if (solved)
+        {
+            Vec3Struct point = new Vec3Struct();
+            //Marshal.PtrToStructure( pathPtr + i*Marshal.SizeOf(typeof(Vec3Struct)),point);
+            IntPtr curPathPtr = pathPtr;
+            for (int i=0; i < pathLen; i++){
+                point = Marshal.PtrToStructure<Vec3Struct>(curPathPtr);
+                path.Add(point);
+                curPathPtr += Marshal.SizeOf(typeof(Vec3Struct));
+            }
+        }
+
+        
         gameObject.transform.position = tmp;
 
         return new Vec3Struct[] { };
@@ -81,7 +98,7 @@ public class UnityOMPLInterface
     [DllImport("libUnityLib.so", EntryPoint = "Destroy", CallingConvention = CallingConvention.Cdecl)] 
     private static extern void Destroy(IntPtr handle);
     [DllImport("libUnityLib.so", EntryPoint = "RRTSearch", CallingConvention = CallingConvention.Cdecl)] 
-    private static extern bool RRTSearch(IntPtr handle, IntPtr gPtr, IntPtr sPtr, IsStateValidDelegate cb, ref IntPtr path);
+    private static extern bool RRTSearch(IntPtr handle, IntPtr gPtr, IntPtr sPtr, IsStateValidDelegate cb, ref IntPtr path, ref int pathLen);
 
 }
 

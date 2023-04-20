@@ -78,7 +78,7 @@ void initROS() {
 
 class UnityOMPLInterface {
 public:
-    bool RRTSearch(Goal *goalPtr, State *statePtr, FuncCallBack isStateValid, State ** path) {
+    bool RRTSearch(Goal *goalPtr, State *statePtr, FuncCallBack isStateValid, State ** path, int * pathLen) {
         initROS();
         MinimalPublisher pubNode;
 
@@ -119,11 +119,25 @@ public:
             pubNode.publish(sstream.str());
 
             solution = ss.getSolutionPath().getStates();
+
+            *path = new State[solution.size()];
+            *pathLen = solution.size();
+            auto point = path[0];
+            for (auto i = 0; i < solution.size(); i++){
+                auto state3D = solution[i]->as<ob::RealVectorStateSpace::StateType>();
+                point->x = state3D->values[0];
+                point->y = state3D->values[1];
+//                point->z = state3D->values[2];
+                point++;
+            }
+            point = nullptr;
         }
 
         return solved;
     }
 
+private:
+    State ** path = nullptr;
 
 };
 
@@ -137,13 +151,13 @@ void Destroy(std::intptr_t handle) {
 }
 
 bool RRTSearch(std::intptr_t handle, std::intptr_t goalPtrIn, std::intptr_t statePtrIn,
-               FuncCallBack isStateValid, std::intptr_t *pathIn) {
+               FuncCallBack isStateValid, std::intptr_t *pathIn, int* pathLen) {
     auto ptr = (UnityOMPLInterface *) handle;
     auto goalPtr = (Goal *) goalPtrIn;
     auto statePtr = (State *) statePtrIn;
     auto path = (State **) pathIn;
 
-    return ptr->RRTSearch(goalPtr, statePtr, isStateValid, path);
+    return ptr->RRTSearch(goalPtr, statePtr, isStateValid, path, pathLen);
 
 }
 
