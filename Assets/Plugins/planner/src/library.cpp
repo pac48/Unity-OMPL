@@ -5,8 +5,8 @@
 #include <ompl/geometric/SimpleSetup.h>
 #include <ompl/geometric/planners/rrt/RRTConnect.h>
 #include <ompl/geometric/planners/rrt/RRTstar.h>
+#include <ompl/geometric/planners/cforest/CForest.h>
 #include <ompl/util/Time.h>
-
 
 
 #include <chrono>
@@ -74,7 +74,9 @@ void initROS() {
 
 class UnityOMPLInterface {
 public:
-    bool RRTSearch(State *goalPtr, State *statePtr, FuncCallBack isStateValid, State ** path, int * pathLen) {
+    bool
+    RRTSearch(State *goalPtr, State *statePtr, FuncCallBack isStateValid, State **path, int *pathLen, double turnRadius,
+              double planTime) {
         initROS();
         MinimalPublisher pubNode;
 
@@ -84,7 +86,7 @@ public:
         bounds.high[0] = 5;
         bounds.high[1] = 5;
 
-        auto space(std::make_shared<ob::DubinsStateSpace>(0.1, false));
+        auto space(std::make_shared<ob::DubinsStateSpace>(turnRadius, false));
 //        ((ob::StateSpacePtr &) space)->as<ob::SE2StateSpace>()->setBounds(bounds);
         space->setBounds(bounds);
 
@@ -112,13 +114,15 @@ public:
         goal[2] = goalPtr->z;
 
         auto planner(std::make_shared<ompl::geometric::RRTstar>(si));
+//        auto planner(std::make_shared<ompl::geometric::CForest>(si));
+//        planner->as<ompl::geometric::CForest>()->setNumThreads(6);
         ss.setPlanner(planner);
 
         ss.setStartAndGoalStates(start, goal);
         ss.getSpaceInformation()->setStateValidityCheckingResolution(0.01);
         ss.setup();
 
-        bool solved = ss.solve(1.0);
+        bool solved = ss.solve(planTime);
 
         std::vector<ompl::base::State *> solution;
         if (solved) {
@@ -138,7 +142,7 @@ public:
             *path = new State[solution.size()];
             *pathLen = solution.size();
             auto point = path[0];
-            for (auto i = 0; i < solution.size(); i++){
+            for (auto i = 0; i < solution.size(); i++) {
                 auto state3D = solution[i]->as<ob::SE2StateSpace::StateType>();
                 point->x = state3D->getX();
                 point->y = state3D->getY();
@@ -153,7 +157,7 @@ public:
     }
 
 private:
-    State ** path = nullptr;
+    State **path = nullptr;
 
 };
 
@@ -167,13 +171,13 @@ void Destroy(std::intptr_t handle) {
 }
 
 bool RRTSearch(std::intptr_t handle, std::intptr_t goalPtrIn, std::intptr_t statePtrIn,
-               FuncCallBack isStateValid, std::intptr_t *pathIn, int* pathLen) {
+               FuncCallBack isStateValid, std::intptr_t *pathIn, int *pathLen, double turnRadius, double planTime) {
     auto ptr = (UnityOMPLInterface *) handle;
     auto goalPtr = (State *) goalPtrIn;
     auto statePtr = (State *) statePtrIn;
     auto path = (State **) pathIn;
 
-    return ptr->RRTSearch(goalPtr, statePtr, isStateValid, path, pathLen);
+    return ptr->RRTSearch(goalPtr, statePtr, isStateValid, path, pathLen, turnRadius, planTime);
 
 }
 
