@@ -80,24 +80,37 @@ public:
         initROS();
         MinimalPublisher pubNode;
 
-        ob::RealVectorBounds bounds(2);
+//        ob::RealVectorBounds bounds(2);
+//        bounds.low[0] = -5;
+//        bounds.low[1] = -5;
+//        bounds.high[0] = 5;
+//        bounds.high[1] = 5;
+//        auto space(std::make_shared<ob::DubinsStateSpace>(turnRadius, false));
+
+        ob::RealVectorBounds bounds(3);
         bounds.low[0] = -5;
         bounds.low[1] = -5;
+        bounds.low[2] = -0.001;
         bounds.high[0] = 5;
         bounds.high[1] = 5;
+        bounds.high[2]  = 0.001;
+        auto space(std::make_shared<ob::RealVectorStateSpace>(3));
 
-        auto space(std::make_shared<ob::DubinsStateSpace>(turnRadius, false));
-//        ((ob::StateSpacePtr &) space)->as<ob::SE2StateSpace>()->setBounds(bounds);
+
         space->setBounds(bounds);
 
         og::SimpleSetup ss(space);
 
         auto si = ss.getSpaceInformation();
         si->setStateValidityChecker([=](const ob::State *state) {
-            const auto *s = state->as<ob::SE2StateSpace::StateType>();
-            statePtr->x = s->getX();
-            statePtr->y = s->getY();
-            statePtr->z = s->getYaw();
+//            const auto *s = state->as<ob::SE2StateSpace::StateType>();
+//            statePtr->x = s->getX();
+//            statePtr->y = s->getY();
+//            statePtr->z = s->getYaw();
+            const auto *s = state->as<ob::RealVectorStateSpace::StateType>();
+            statePtr->x = s->values[0];
+            statePtr->y = s->values[1];
+            statePtr->z = s->values[2];
 
             return isStateValid();
         });
@@ -113,7 +126,8 @@ public:
         goal[1] = goalPtr->y;
         goal[2] = goalPtr->z;
 
-        auto planner(std::make_shared<ompl::geometric::RRTstar>(si));
+//        auto planner(std::make_shared<ompl::geometric::RRTstar>(si));
+        auto planner(std::make_shared<ompl::geometric::RRTConnect>(si));
 //        auto planner(std::make_shared<ompl::geometric::CForest>(si));
 //        planner->as<ompl::geometric::CForest>()->setNumThreads(6);
         ss.setPlanner(planner);
@@ -137,20 +151,25 @@ public:
 
             og::PathGeometric solPath = ss.getSolutionPath();
             solPath.interpolate(1000);
+
             solution = solPath.getStates();
 
             *path = new State[solution.size()];
             *pathLen = solution.size();
             auto point = path[0];
             for (auto i = 0; i < solution.size(); i++) {
-                auto state3D = solution[i]->as<ob::SE2StateSpace::StateType>();
-                point->x = state3D->getX();
-                point->y = state3D->getY();
-                point->z = state3D->getYaw();
-//                point->z = state3D->values[2];
+//                auto state3D = solution[i]->as<ob::SE2StateSpace::StateType>();
+//                point->x = state3D->getX();
+//                point->y = state3D->getY();
+//                point->z = state3D->getYaw();
+
+                auto s = solution[i]->as<ob::RealVectorStateSpace::StateType>();
+                point->x = s->values[0];
+                point->y = s->values[1];
+                point->z = s->values[2];
+
                 point++;
             }
-            point = nullptr;
         }
 
         return solved;
