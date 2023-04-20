@@ -8,11 +8,12 @@ using UnityEngine.Rendering;
 public class CPPBehavior : MonoBehaviour
 {
     private bool spaceKeyPressed = false;
+    private bool collided = false;
     private LineRenderer lineRenderer;
     public Collider validBounds;
     private Collider robotCollider;
     // OMPL 
-    [SerializeField] State goal;
+    [SerializeField] Transform goal;
     private UnityOMPLInterface OMLInterface;
     
     void Start()
@@ -38,17 +39,23 @@ public class CPPBehavior : MonoBehaviour
 
         if (Input.GetKey(KeyCode.Space) && !spaceKeyPressed)
         {
+            bool autoSimulation = Physics.autoSimulation;
+            Physics.autoSimulation = false;
             spaceKeyPressed = true;
             Debug.Log("Plan Start");
-            var points = OMLInterface.plan(goal);
+            State goalState = new State();
+            goalState.x = goal.position.x;
+            goalState.y = goal.position.y;
+            goalState.z = 0;
+            var points = OMLInterface.plan(goalState);
             lineRenderer.positionCount = points.Count;
             int ind = 0;
             foreach (var point in points)
             {
-                lineRenderer.SetPosition(ind, new Vector3(point.x, point.y, point.z));
+                lineRenderer.SetPosition(ind, new Vector3(point.x, point.y, point.z*0));
                 ind++;
             }
-            
+            Physics.autoSimulation = true;
             Debug.Log("Done Plan");
         }
 
@@ -67,16 +74,42 @@ public class CPPBehavior : MonoBehaviour
         Vector3 pos = gameObject.transform.position;
         pos.x = state.x;
         pos.y = state.y;
-        pos.z = state.z;
+        pos.z = 0;
+        //pos.z = state.z;
         gameObject.transform.position = pos;
     }
 
+    //void OnCollisionStay(Collision collision)
+    //{
+    //    Debug.Log("Do something else here");
+    //}
+    void OnCollisionStay(Collision collision)
+    {
+        if (collision.gameObject != validBounds.gameObject)
+        {
+            collided = true;
+            //Debug.Log("Collision: " + collision.collider.name);
+        }
+      //  else
+       // {
+        //    collided = false;
+        //}
+
+    }
+    //void OnCollisionStay(Collision collision)
+    //{
+    //    collided = true;
+     //   Debug.Log("Collision: " + collision.collider.name);
+   // }
     public bool IsStateValid(Vector3 state)
     {
-        gameObject.transform.position = state;
+        var newPosition = new Vector3();
+        newPosition = state;
+        newPosition.z = 0;
+        gameObject.transform.position = newPosition;
         Physics.SyncTransforms();
-        
-        float robotRadius = 2.0f;
+
+        float robotRadius = 10.0f;
         bool valid = true;
         Collider[] colliders = Physics.OverlapSphere(state, robotRadius);
         foreach (Collider collider in colliders) {
@@ -96,8 +129,12 @@ public class CPPBehavior : MonoBehaviour
             bool doesIntersect = robotCollider.bounds.Intersects(collider.bounds);
             if (doesIntersect)
             {
-                valid = false;
-                break;
+                Physics.Simulate(Time.fixedDeltaTime);
+                if (collided){
+                    valid = false;
+                    collided = false;
+                    break;
+                }
             }
         }
 

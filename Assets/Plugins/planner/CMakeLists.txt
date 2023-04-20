@@ -12,12 +12,15 @@ ExternalProject_Add(
         GIT_TAG main
         CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}
 )
+#set(CMAKE_BUILD_TYPE Debug)
+#add_subdirectory(ompl)
 
 find_package(rclcpp REQUIRED)
 find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIRS})
 
 add_library(UnityLib SHARED src/library.cpp)
+#target_link_libraries(UnityLib ompl2)
 target_link_libraries(UnityLib ${CMAKE_INSTALL_PREFIX}/lib/libompl.so)
 target_include_directories(UnityLib PRIVATE include)
 target_include_directories(UnityLib PRIVATE ${CMAKE_INSTALL_PREFIX}/include/ompl-1.6)

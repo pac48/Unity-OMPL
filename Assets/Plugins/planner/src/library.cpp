@@ -1,7 +1,13 @@
 #include <ompl/base/Planner.h>
-#include <ompl/geometric/SimpleSetup.h>
-#include <ompl/base/spaces/RealVectorStateSpace.h>
 #include <ompl/base/goals/GoalState.h>
+#include <ompl/base/spaces/DubinsStateSpace.h>
+#include <ompl/base/spaces/RealVectorStateSpace.h>
+#include <ompl/geometric/SimpleSetup.h>
+#include <ompl/geometric/planners/rrt/RRTConnect.h>
+#include <ompl/geometric/planners/rrt/RRTstar.h>
+#include <ompl/util/Time.h>
+
+
 
 #include <chrono>
 #include "rclcpp/rclcpp.hpp"
@@ -13,16 +19,6 @@ namespace ob = ompl::base;
 namespace og = ompl::geometric;
 using namespace std::chrono_literals;
 
-
-struct Object {
-    float x;
-    float y;
-};
-struct Goal {
-    float x;
-    float y;
-    float z;
-};
 
 struct State {
     float x;
@@ -78,56 +74,75 @@ void initROS() {
 
 class UnityOMPLInterface {
 public:
-    bool RRTSearch(Goal *goalPtr, State *statePtr, FuncCallBack isStateValid, State ** path, int * pathLen) {
+    bool RRTSearch(State *goalPtr, State *statePtr, FuncCallBack isStateValid, State ** path, int * pathLen) {
         initROS();
         MinimalPublisher pubNode;
 
-        auto space = std::make_shared<ob::RealVectorStateSpace>(2);
-        space->setBounds(-5.0, 5.0);
+        ob::RealVectorBounds bounds(2);
+        bounds.low[0] = -5;
+        bounds.low[1] = -5;
+        bounds.high[0] = 5;
+        bounds.high[1] = 5;
+
+        auto space(std::make_shared<ob::DubinsStateSpace>(0.1, false));
+//        ((ob::StateSpacePtr &) space)->as<ob::SE2StateSpace>()->setBounds(bounds);
+        space->setBounds(bounds);
 
         og::SimpleSetup ss(space);
-        ss.setStateValidityChecker([=](const ob::State *state) {
-            const auto *state3D = state->as<ob::RealVectorStateSpace::StateType>();
-            statePtr->x = state3D->values[0];
-            statePtr->y = state3D->values[1];
-//        statePtr->z = state3D->values[2];
+
+        auto si = ss.getSpaceInformation();
+        si->setStateValidityChecker([=](const ob::State *state) {
+            const auto *s = state->as<ob::SE2StateSpace::StateType>();
+            statePtr->x = s->getX();
+            statePtr->y = s->getY();
+            statePtr->z = s->getYaw();
+
             return isStateValid();
         });
+//        si->setStateValidityCheckingResolution(0.005);
 
         ob::ScopedState<> start(space);
         start[0] = statePtr->x;
         start[1] = statePtr->y;
-//    start[2] = statePtr->z;
+        start[2] = statePtr->z;
 
         ob::ScopedState<> goal(space);
         goal[0] = goalPtr->x;
         goal[1] = goalPtr->y;
-//    goal[2] = goalPtr->z;
+        goal[2] = goalPtr->z;
+
+        auto planner(std::make_shared<ompl::geometric::RRTstar>(si));
+        ss.setPlanner(planner);
 
         ss.setStartAndGoalStates(start, goal);
+        ss.getSpaceInformation()->setStateValidityCheckingResolution(0.01);
+        ss.setup();
 
-        ob::PlannerStatus solved = ss.solve(1.0);
+        bool solved = ss.solve(1.0);
 
         std::vector<ompl::base::State *> solution;
         if (solved) {
             std::cout << "Found solution:" << std::endl;
             fprintf(stderr, "Found solution:");
+
             ss.simplifySolution();
             ss.getSolutionPath().print(std::cout);
             std::stringstream sstream;
             ss.getSolutionPath().print(sstream);
             pubNode.publish(sstream.str());
 
-            solution = ss.getSolutionPath().getStates();
+            og::PathGeometric solPath = ss.getSolutionPath();
+            solPath.interpolate(1000);
+            solution = solPath.getStates();
 
             *path = new State[solution.size()];
             *pathLen = solution.size();
             auto point = path[0];
             for (auto i = 0; i < solution.size(); i++){
-                auto state3D = solution[i]->as<ob::RealVectorStateSpace::StateType>();
-                point->x = state3D->values[0];
-                point->y = state3D->values[1];
-                point->z = 0;
+                auto state3D = solution[i]->as<ob::SE2StateSpace::StateType>();
+                point->x = state3D->getX();
+                point->y = state3D->getY();
+                point->z = state3D->getYaw();
 //                point->z = state3D->values[2];
                 point++;
             }
@@ -154,7 +169,7 @@ void Destroy(std::intptr_t handle) {
 bool RRTSearch(std::intptr_t handle, std::intptr_t goalPtrIn, std::intptr_t statePtrIn,
                FuncCallBack isStateValid, std::intptr_t *pathIn, int* pathLen) {
     auto ptr = (UnityOMPLInterface *) handle;
-    auto goalPtr = (Goal *) goalPtrIn;
+    auto goalPtr = (State *) goalPtrIn;
     auto statePtr = (State *) statePtrIn;
     auto path = (State **) pathIn;
 
