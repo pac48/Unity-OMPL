@@ -127,6 +127,7 @@ public:
                 auto state3D = solution[i]->as<ob::RealVectorStateSpace::StateType>();
                 point->x = state3D->values[0];
                 point->y = state3D->values[1];
+                point->z = 0;
 //                point->z = state3D->values[2];
                 point++;
             }
