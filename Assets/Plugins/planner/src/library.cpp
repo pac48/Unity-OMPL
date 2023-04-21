@@ -27,7 +27,7 @@ using namespace std::chrono_literals;
 #include <iostream>
 #include <vector>
 #include "Eigen/Core"
-
+#include <qpOASES.hpp>
 
 
 
@@ -88,76 +88,37 @@ public:
     int testStuff(MinimalPublisher & pubNode, const std::vector<State>& pathVec) {
         std::stringstream sstream;
 
-        int N = 5; // horizon lenght
+        using namespace qpOASES;
 
-        const Eigen::MatrixXd A = (Eigen::MatrixXd(2, 2) << 1.0, 1.0,
-                0.0, 1.0).finished();
-        const Eigen::MatrixXd B = (Eigen::MatrixXd(2, 1) << 0.0, 1.0).finished();
-        const Eigen::VectorXd b = (Eigen::VectorXd(2) << 0.0, 0.0).finished();
+        /* Setup data of first QP. */
+        real_t H[2 * 2] = {1.0, 0.0, 0.0, 0.5};
+        real_t A[1 * 2] = {1.0, 1.0};
+        real_t g[2] = {0.0, 0.0};
+        real_t lb[2] = {-10.0, -10.0};
+        real_t ub[2] = {10000.0, 10000.0};
+        real_t lbA[1] = {5.0};
+        real_t ubA[1] = {1000.0};
 
-        const Eigen::MatrixXd Q = (Eigen::MatrixXd(2, 2) << 1.0, 0.0,
-                0.0, 1.0).finished();
-        const Eigen::MatrixXd R = (Eigen::MatrixXd(1, 1) << 1.0).finished();
-        const Eigen::MatrixXd S = (Eigen::MatrixXd(1, 2) << 0.0, 0.0).finished();
-        const Eigen::VectorXd q = (Eigen::VectorXd(2) << 1.0, 1.0).finished();
-        const Eigen::VectorXd r = (Eigen::VectorXd(1) << 0.0).finished();
+        /* Setting up QProblem object. */
+        QProblem example(2, 1);
 
-        const Eigen::VectorXd x0 = (Eigen::VectorXd(2) << 1.0, 1.0).finished();
+        Options options;
+        example.setOptions(options);
 
-        std::vector<hpipm::OcpQp> qp(N+1);
-        for (int i=0; i<N; ++i) {
-            qp[i].A = A;
-            qp[i].B = B;
-            qp[i].b = b;
-        }
-        // cost
-        for (int i=0; i<N; ++i) {
-            qp[i].Q = Q;
-            qp[i].R = R;
-            qp[i].S = S;
-            qp[i].q = q;
-            qp[i].r = r;
-        }
-        qp[N].Q = Q;
-        qp[N].q = q;
+        /* Solve first QP. */
+        int_t nWSR = 10;
+        example.init(H, g, A, lb, ub, lbA, ubA, nWSR);
+
+        /* Get and print solution of first QP. */
+        real_t xOpt[2];
+        real_t yOpt[2 + 1];
+        example.getPrimalSolution(xOpt);
+        example.getDualSolution(yOpt);
+        printf("\nxOpt = [ %e, %e ];  yOpt = [ %e, %e, %e ];  objVal = %e\n\n",
+               xOpt[0], xOpt[1], yOpt[0], yOpt[1], yOpt[2], example.getObjVal());
 
 
-        hpipm::OcpQpIpmSolverSettings solver_settings;
-        solver_settings.mode = hpipm::HpipmMode::Balance;
-        solver_settings.iter_max = 30;
-        solver_settings.alpha_min = 1e-8;
-        solver_settings.mu0 = 1e2;
-        solver_settings.tol_stat = 1e-04;
-        solver_settings.tol_eq = 1e-04;
-        solver_settings.tol_ineq = 1e-04;
-        solver_settings.tol_comp = 1e-04;
-        solver_settings.reg_prim = 1e-12;
-        solver_settings.warm_start = 0;
-        solver_settings.pred_corr = 1;
-        solver_settings.ric_alg = 0;
-        solver_settings.split_step = 1;
-
-        std::vector<hpipm::OcpQpSolution> solution(N+1);
-        hpipm::OcpQpIpmSolver solver(qp, solver_settings);
-
-        const auto res = solver.solve(x0, qp, solution);
-        sstream << "QP result: " << res << std::endl;
-
-        sstream << "OCP QP primal solution: " << std::endl;
-        for (int i=0; i<=N; ++i) {
-            sstream << "x[" << i << "]: " << solution[i].x.transpose() << std::endl;
-        }
-        for (int i=0; i<N; ++i) {
-            sstream << "u[" << i << "]: " << solution[i].u.transpose() << std::endl;
-        }
-
-        sstream << "OCP QP dual solution (Lagrange multipliers): " << std::endl;
-        for (int i=0; i<=N; ++i) {
-            sstream << "pi[" << i << "]: " << solution[i].pi.transpose() << std::endl;
-        }
-
-        const auto& stat = solver.getSolverStatistics();
-        sstream << stat << std::endl;
+        sstream << "xOpt = ["<<xOpt[0]<<", "<<xOpt[1] << "];" << std::endl;
 
         pubNode.publish(sstream.str());
 

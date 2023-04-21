@@ -29,12 +29,21 @@ ExternalProject_Add(
         CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}
 )
 
+#ExternalProject_Add(
+#        hpipm-cpp
+#        GIT_REPOSITORY https://github.com/pac48/hpipm-cpp
+#        GIT_TAG add-option-to-set-cmake-library
+#        CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX} -Dblasfeo_LIBRARY=/opt/blasfeo/lib/libblasfeo.a -Dhpipm_LIBRARY=${CMAKE_INSTALL_PREFIX}/lib/libhpipm.a
+#)
+
 ExternalProject_Add(
-        hpipm-cpp
-        GIT_REPOSITORY https://github.com/pac48/hpipm-cpp
-        GIT_TAG add-option-to-set-cmake-library
-        CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX} -Dblasfeo_LIBRARY=/opt/blasfeo/lib/libblasfeo.a -Dhpipm_LIBRARY=${CMAKE_INSTALL_PREFIX}/lib/libhpipm.a
+        qpOASES
+        GIT_REPOSITORY https://github.com/coin-or/qpOASES.git
+        GIT_TAG master
+        CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX} -DCMAKE_POSITION_INDEPENDENT_CODE=ON
 )
+
+
 
 #set(CMAKE_BUILD_TYPE Debug)
 #add_subdirectory(ompl)
@@ -46,9 +55,10 @@ include_directories(${EIGEN3_INCLUDE_DIRS})
 add_library(UnityLib SHARED src/library.cpp)
 #target_link_libraries(UnityLib ompl2)
 target_link_libraries(UnityLib ${CMAKE_INSTALL_PREFIX}/lib/libompl.so)
-target_link_libraries(UnityLib ${CMAKE_INSTALL_PREFIX}/lib/libhpipm-cpp.so)
-target_link_libraries(UnityLib ${CMAKE_INSTALL_PREFIX}/lib/libhpipm.a)
-target_link_libraries(UnityLib /opt/blasfeo/lib/libblasfeo.a)
+target_link_libraries(UnityLib ${CMAKE_INSTALL_PREFIX}/lib/libqpOASES.a)
+#target_link_libraries(UnityLib ${CMAKE_INSTALL_PREFIX}/lib/libhpipm-cpp.so)
+#target_link_libraries(UnityLib ${CMAKE_INSTALL_PREFIX}/lib/libhpipm.a)
+#target_link_libraries(UnityLib /opt/blasfeo/lib/libblasfeo.a)
 
 target_include_directories(UnityLib PRIVATE include)
 target_include_directories(UnityLib PRIVATE ${CMAKE_INSTALL_PREFIX}/include/ompl-1.6)
