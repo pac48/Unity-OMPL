@@ -46,7 +46,8 @@ public class CPPBehavior : MonoBehaviour
             spaceKeyPressed = false;
         }
 
-        if (Input.GetKey(KeyCode.Space) && !spaceKeyPressed)
+
+        if (true ||Input.GetKey(KeyCode.Space) && !spaceKeyPressed)
         {
             bool autoSimulation = Physics.autoSimulation;
             Physics.autoSimulation = false;
