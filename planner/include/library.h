@@ -2,6 +2,7 @@
 
 #include "Eigen/Core"
 #include <qpOASES/QProblem.hpp>
+#include <optional>
 
 #if defined(_MSC_VER)
 #define MY_LIB_API __declspec(dllexport) // Microsoft
@@ -15,7 +16,18 @@
 typedef bool(*FuncCallBack)();
 
 void initROS();
-Eigen::VectorXd gaussian_rbf(const Eigen::MatrixXd & x, const Eigen::VectorXd & mu, double sigma);
+
+Eigen::VectorXd gaussian_rbf(const Eigen::MatrixXd &x, const Eigen::VectorXd &mu, double sigma);
+
+Eigen::MatrixXd get_rbf_basis(int numberBasis, double width, int numPoints, std::pair<double, double> range);
+
+typedef std::optional<Eigen::MatrixXd> optionalMatrix;
+typedef std::optional<Eigen::VectorXd> optionalVector;
+
+Eigen::VectorXd
+SolveQP(const Eigen::MatrixXd &H, const Eigen::VectorXd &g, const optionalMatrix &A, const optionalVector &lb,
+      const optionalVector &ub,
+      const optionalVector &lbA, const optionalVector &ubA, qpOASES::int_t nWSR);
 
 extern "C" {
 MY_LIB_API bool

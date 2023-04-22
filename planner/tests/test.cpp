@@ -4,6 +4,7 @@
 #include <plotty/matplotlibcpp.hpp>
 #include <Eigen/Dense>
 
+
 TEST(OMPL, search) {
     initROS();
     ASSERT_TRUE(true);
@@ -12,26 +13,54 @@ TEST(OMPL, search) {
 }
 
 TEST(QP, rbf) {
-  auto mu = Eigen::VectorXd::Ones(5);
-  Eigen::MatrixXd x = .5*Eigen::MatrixXd::Ones(100, 5);
-  x.array() -= 1.0;
+    int numberBasis = 10;
+    double width = .5;
+    int numPoints = 100;
+    std::pair<double, double> range = {-1, 1};
 
-  Eigen::VectorXd v = Eigen::VectorXd::LinSpaced(100, 0, 3);
-  auto x2 = x.colwise() + v;
-
-  auto out = gaussian_rbf(x2, mu, .5);
-  std::cout << "rbf: " << out<< '\n';
-
-  plotty::plot(out);
-  plotty::show();
+    Eigen::MatrixXd A = get_rbf_basis(numberBasis, width, numPoints, range);
+    for (auto i = 0; i < A.cols(); i++) {
+        plotty::plot(A.col(i));
+    }
+    plotty::show();
 
 }
 
+
+TEST(QP, fitBasis) {
+    int numberBasis = 10;
+    double width = .5;
+    int numPoints = 100;
+    std::pair<double, double> range = {-1, 1};
+
+    Eigen::MatrixXd M = get_rbf_basis(numberBasis, width, numPoints, range);
+
+    Eigen::VectorXd target = Eigen::VectorXd::LinSpaced(numPoints, 0, 15);
+    target = sin(target.array());
+
+    Eigen::VectorXd lb = -1000 * Eigen::VectorXd::Ones(numberBasis);
+    Eigen::VectorXd ub = -lb;
+    qpOASES::int_t nWSR = 1E3;
+
+    Eigen::MatrixXd H = M.transpose() * M;
+    Eigen::MatrixXd g = -M.transpose() * target;
+
+    Eigen::VectorXd weights = SolveQP(H, g, {}, {lb}, {ub}, {}, {}, nWSR);
+    Eigen::VectorXd out = M * weights;
+
+    plotty::plot(target);
+    plotty::plot(out);
+
+    plotty::show();
+
+}
+
+
 TEST(PLOTTY, simple) {
 // Simple:
-  std::vector<double> v({1, 2, 3, 4});
-  plotty::plot(v);
-  plotty::show();
+    std::vector<double> v({1, 2, 3, 4});
+    plotty::plot(v);
+    plotty::show();
 }
 
 int main(int argc, char **argv) {

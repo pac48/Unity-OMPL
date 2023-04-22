@@ -22,7 +22,7 @@ using namespace std::chrono_literals;
 
 #include <iostream>
 #include <vector>
-
+#include <plotty/matplotlibcpp.hpp>
 
 
 struct State {
@@ -76,55 +76,115 @@ void initROS() {
     }
 }
 
+Eigen::VectorXd gaussian_rbf(const Eigen::MatrixXd &x, const Eigen::VectorXd &mu, double sigma) {
+    auto delta = (x.rowwise() - mu.transpose());
+    auto delta2 = delta.array() * delta.array();
+    auto dist = delta2.rowwise().sum();
 
-Eigen::VectorXd gaussian_rbf(const Eigen::MatrixXd & x, const Eigen::VectorXd & mu, double sigma) {
-  auto delta = (x.rowwise() - mu.transpose());
-  auto delta2 = delta.array() * delta.array();
-  auto dist = delta2.rowwise().sum();
+    return exp(-dist / (2 * sigma * sigma));
 
-  return exp(-dist/(2 * sigma * sigma));
+}
 
+Eigen::MatrixXd get_rbf_basis(int numberBasis, double width, int numPoints, std::pair<double, double> range) {
+
+    Eigen::MatrixXd A = Eigen::MatrixXd::Zero(numPoints, numberBasis);
+
+    Eigen::VectorXd centers = Eigen::VectorXd::LinSpaced(numberBasis, range.first, range.second);
+    Eigen::VectorXd mu = Eigen::VectorXd::Zero(1);
+    Eigen::MatrixXd x = Eigen::MatrixXd::Zero(numPoints, 1);
+    int ind = 0;
+    for (auto c: centers) {
+        mu[0] = c;
+        x.col(0) = Eigen::VectorXd::LinSpaced(numPoints, range.first, range.second);
+        A.col(ind) = gaussian_rbf(x, mu, width);
+        ind++;
+    }
+
+
+    return A;
+}
+
+Eigen::VectorXd
+SolveQP(const Eigen::MatrixXd &H, const Eigen::VectorXd &g, const optionalMatrix &A, const optionalVector &lb,
+        const optionalVector &ub,
+        const optionalVector &lbA, const optionalVector &ubA, qpOASES::int_t nWSR) {
+    using namespace qpOASES;
+
+    /* Setup data of first QP. */
+    auto H_arr = H.data();
+    auto g_arr = g.data();
+    const real_t *A_arr = nullptr;
+    const real_t *lb_arr = nullptr;
+    const real_t *ub_arr = nullptr;
+    const real_t *lbA_arr = nullptr;
+    const real_t *ubA_arr = nullptr;
+    if (A.has_value()) {
+        A_arr = A.value().data();
+    }
+    if (lb.has_value()) {
+        lb_arr = lb.value().data();
+    }
+    if (ub.has_value()) {
+        ub_arr = ub.value().data();
+    }
+    if (lbA.has_value()) {
+        lbA_arr = lb.value().data();
+    }
+    if (ubA.has_value()) {
+        ubA_arr = ub.value().data();
+    }
+
+    /* Setting up QProblem object. */
+    QProblem example(H.cols(), 0);
+
+    Options options;
+    example.setOptions(options);
+
+    /* Solve first QP. */
+    example.init(H_arr, g_arr, A_arr, lb_arr, ub_arr, lbA_arr, ubA_arr, nWSR);
+
+    /* Get and print solution of first QP. */
+    real_t xOpt_arr[H.cols()];
+    example.getPrimalSolution(xOpt_arr);
+
+    Eigen::VectorXd weights = Eigen::Map<Eigen::VectorXd>(xOpt_arr, H.cols());
+    return weights;
 }
 
 class UnityOMPLInterface {
 public:
-    int testStuff(MinimalPublisher & pubNode, const std::vector<State>& pathVec) {
+    int testStuff(MinimalPublisher &pubNode, const std::vector<State> &pathVec) {
         std::stringstream sstream;
 
-        using namespace qpOASES;
+        Eigen::VectorXd tmp = Eigen::Map<Eigen::VectorXf>((float *) pathVec.data(), 3*pathVec.size()).cast<double>();
+        Eigen::MatrixXd path = tmp.reshaped( 3, pathVec.size()).transpose();
+        Eigen::MatrixXd pathDiffs = path.middleRows(1, path.rows()-1) - path.middleRows(0, path.rows()-1);
+        Eigen::VectorXd dist = (pathDiffs.cwiseProduct(pathDiffs)).rowwise().sum().array().sqrt();
+        Eigen::VectorXd pathlength = Eigen::VectorXd::Zero(pathVec.size());
+        std::partial_sum(dist.begin(), dist.end(), pathlength.begin()+1, std::plus<double>());
+
+        int numberBasis = pathVec.size();
+        double width = .5/pathlength.tail(1)(0);
+        int numPoints = pathlength.size();
+        std::pair<double, double> range = {0.0, pathlength.tail(1)(0)};
+
+        Eigen::MatrixXd M = get_rbf_basis(numberBasis, width, numPoints, range);
+
+        Eigen::VectorXd target = Eigen::VectorXd::LinSpaced(numPoints, 0, 15);
+        target = sin(target.array());
 
 
+        Eigen::MatrixXd H = M.transpose() * M;
+        Eigen::MatrixXd g = -M.transpose() * target;
 
+        qpOASES::int_t nWSR = 1E3;
+        Eigen::VectorXd weights = SolveQP(H, g, {}, {}, {}, {}, {}, nWSR);
+        Eigen::VectorXd out = M * weights;
 
-        /* Setup data of first QP. */
-        real_t H[2 * 2] = {1.0, 0.0, 0.0, 0.5};
-        real_t A[1 * 2] = {1.0, 1.0};
-        real_t g[2] = {0.0, 0.0};
-        real_t lb[2] = {-10.0, -10.0};
-        real_t ub[2] = {10000.0, 10000.0};
-        real_t lbA[1] = {5.0};
-        real_t ubA[1] = {1000.0};
+//        plotty::plot(target);
+//        plotty::plot(out);
 
-        /* Setting up QProblem object. */
-        QProblem example(2, 1);
-
-        Options options;
-        example.setOptions(options);
-
-        /* Solve first QP. */
-        int_t nWSR = 10;
-        example.init(H, g, A, lb, ub, lbA, ubA, nWSR);
-
-        /* Get and print solution of first QP. */
-        real_t xOpt[2];
-        real_t yOpt[2 + 1];
-        example.getPrimalSolution(xOpt);
-        example.getDualSolution(yOpt);
-        printf("\nxOpt = [ %e, %e ];  yOpt = [ %e, %e, %e ];  objVal = %e\n\n",
-               xOpt[0], xOpt[1], yOpt[0], yOpt[1], yOpt[2], example.getObjVal());
-
-
-        sstream << "xOpt = ["<<xOpt[0]<<", "<<xOpt[1] << "];" << std::endl;
+        sstream << "xOpt = [" << pathlength << "];" << std::endl;
 
         pubNode.publish(sstream.str());
 
@@ -150,7 +210,7 @@ public:
         bounds.low[2] = -0.001;
         bounds.high[0] = 5;
         bounds.high[1] = 5;
-        bounds.high[2]  = 0.001;
+        bounds.high[2] = 0.001;
         auto space(std::make_shared<ob::RealVectorStateSpace>(3));
 
 
@@ -204,10 +264,10 @@ public:
             ss.getSolutionPath().print(std::cout);
             std::stringstream sstream;
             ss.getSolutionPath().print(sstream);
-            pubNode.publish(sstream.str());
+//            pubNode.publish(sstream.str());
 
             og::PathGeometric solPath = ss.getSolutionPath();
-//            solPath.interpolate(1000);
+            solPath.interpolate(100);
 
             solution = solPath.getStates();
 

@@ -4,6 +4,7 @@ project(UnityLib)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/../Assets/Plugins/ CACHE PATH "Installation directory" FORCE)
 set(BUILD_SHARED_LIBS ON CACHE PATH "Build shared libraries" FORCE)
+#set(DCMAKE_BUILD_TYPE Release)
 
 # Download and build the repository
 include(ExternalProject)
@@ -40,9 +41,8 @@ ExternalProject_Add(
         qpOASES
         GIT_REPOSITORY https://github.com/coin-or/qpOASES.git
         GIT_TAG master
-        CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX} -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+        CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX} -DCMAKE_POSITION_INDEPENDENT_CODE=ON  -DCMAKE_BUILD_TYPE=Release
 )
-
 
 
 #set(CMAKE_BUILD_TYPE Debug)
