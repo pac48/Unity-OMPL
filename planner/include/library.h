@@ -32,7 +32,7 @@ SolveQP(const Eigen::MatrixXd &H, const Eigen::VectorXd &g, const optionalMatrix
 extern "C" {
 MY_LIB_API bool
 RRTSearch(std::intptr_t handle, std::intptr_t goalPtrIn, std::intptr_t statePtrIn, FuncCallBack cb, std::intptr_t *path,
-          int *pathLen, double turnRadius, double planTime);
+          int *pathLen, double turnRadius, double planTime, double lambda, double widthScale, int numberBasis);
 MY_LIB_API std::intptr_t Init();
 MY_LIB_API void Destroy(std::intptr_t handle);
 }

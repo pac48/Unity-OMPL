@@ -22,7 +22,6 @@ using namespace std::chrono_literals;
 
 #include <iostream>
 #include <vector>
-#include <plotty/matplotlibcpp.hpp>
 
 
 struct State {
@@ -66,11 +65,11 @@ void initROS() {
         auto name = "ros_node";
         rclcpp::init(1, &name);
 
-        auto myThread = new std::thread([]() {
-            rclcpp::spin(std::make_shared<MinimalPublisher>());
-            rclcpp::shutdown();
-
-        });
+//        auto myThread = new std::thread([]() {
+//            rclcpp::spin(std::make_shared<MinimalPublisher>());
+//            rclcpp::shutdown();
+//
+//        });
 
         rosInitialized = true;
     }
@@ -87,9 +86,9 @@ Eigen::VectorXd gaussian_rbf(const Eigen::MatrixXd &x, const Eigen::VectorXd &mu
 
 Eigen::MatrixXd get_rbf_basis(int numberBasis, double width, int numPoints, std::pair<double, double> range) {
 
-    Eigen::MatrixXd A = Eigen::MatrixXd::Zero(numPoints, numberBasis);
+    Eigen::MatrixXd A = Eigen::MatrixXd::Ones(numPoints, numberBasis);
 
-    Eigen::VectorXd centers = Eigen::VectorXd::LinSpaced(numberBasis, range.first, range.second);
+    Eigen::VectorXd centers = Eigen::VectorXd::LinSpaced(numberBasis-1, range.first, range.second);
     Eigen::VectorXd mu = Eigen::VectorXd::Zero(1);
     Eigen::MatrixXd x = Eigen::MatrixXd::Zero(numPoints, 1);
     int ind = 0;
@@ -99,7 +98,7 @@ Eigen::MatrixXd get_rbf_basis(int numberBasis, double width, int numPoints, std:
         A.col(ind) = gaussian_rbf(x, mu, width);
         ind++;
     }
-
+    A = A.unaryExpr([](double v) { return std::isfinite(v)? v : 0.0; });
 
     return A;
 }
@@ -153,47 +152,64 @@ SolveQP(const Eigen::MatrixXd &H, const Eigen::VectorXd &g, const optionalMatrix
 
 class UnityOMPLInterface {
 public:
-    int testStuff(MinimalPublisher &pubNode, const std::vector<State> &pathVec) {
+    int smoothPath(MinimalPublisher &pubNode, std::vector<State> &pathVec, double lambda, double widthScale, int numberBasis) {
         std::stringstream sstream;
 
-        Eigen::VectorXd tmp = Eigen::Map<Eigen::VectorXf>((float *) pathVec.data(), 3*pathVec.size()).cast<double>();
+        auto pathVecCopy = pathVec;
+        Eigen::VectorXd tmp = Eigen::Map<Eigen::VectorXf>((float *) pathVecCopy.data(), 3*pathVecCopy.size()).cast<double>();
         Eigen::MatrixXd path = tmp.reshaped( 3, pathVec.size()).transpose();
         Eigen::MatrixXd pathDiffs = path.middleRows(1, path.rows()-1) - path.middleRows(0, path.rows()-1);
         Eigen::VectorXd dist = (pathDiffs.cwiseProduct(pathDiffs)).rowwise().sum().array().sqrt();
         Eigen::VectorXd pathlength = Eigen::VectorXd::Zero(pathVec.size());
         std::partial_sum(dist.begin(), dist.end(), pathlength.begin()+1, std::plus<double>());
 
-        int numberBasis = pathVec.size();
-        double width = .5/pathlength.tail(1)(0);
+//        double lambda = 0.001;
+//        int numberBasis = 10;
+        double width = pathlength.tail(1)(0)*widthScale;
+//        double width = .5;
         int numPoints = pathlength.size();
-        std::pair<double, double> range = {0.0, pathlength.tail(1)(0)};
+//        std::pair<double, double> range = {0.0, pathlength.tail(1)(0)};
+        std::pair<double, double> range = {-1, 1};
 
-        Eigen::MatrixXd M = get_rbf_basis(numberBasis, width, numPoints, range);
+        Eigen::MatrixXd Mi = get_rbf_basis(numberBasis, width, numPoints, range);
+        Eigen::MatrixXd M = Eigen::MatrixXd::Zero(2*numPoints+2*numberBasis, 2*numberBasis);
+        M.block(0, 0, numPoints, numberBasis) = Mi;
+        M.block(numPoints, 0, numberBasis, numberBasis) = lambda*Eigen::MatrixXd::Identity(numberBasis, numberBasis);
 
-        Eigen::VectorXd target = Eigen::VectorXd::LinSpaced(numPoints, 0, 15);
-        target = sin(target.array());
+        M.block(numPoints + numberBasis, numberBasis, numPoints, numberBasis) = Mi;
+        M.block(2*numPoints + numberBasis, numberBasis, numberBasis, numberBasis) = lambda*Eigen::MatrixXd::Identity(numberBasis, numberBasis);
 
+        Eigen::VectorXd target(2*numPoints + 2*numberBasis);
+        target << path.col(0), Eigen::VectorXd::Zero(numberBasis), path.col(1), Eigen::VectorXd::Zero(numberBasis);
 
         Eigen::MatrixXd H = M.transpose() * M;
+        H = 0.5 * (H + H.transpose());
         Eigen::MatrixXd g = -M.transpose() * target;
 
-        qpOASES::int_t nWSR = 1E3;
+        qpOASES::int_t nWSR = 1E5;
         Eigen::VectorXd weights = SolveQP(H, g, {}, {}, {}, {}, {}, nWSR);
         Eigen::VectorXd out = M * weights;
+        Eigen::MatrixXd pathSmooth = out.reshaped(numPoints + numberBasis, 2);
 
-//        plotty::plot(target);
-//        plotty::plot(out);
+        for (int i =0; i < pathVec.size();i++){
+            pathVec[i].x = pathSmooth(i, 0);
+            pathVec[i].y = pathSmooth(i, 1);
+        }
 
-        sstream << "xOpt = [" << pathlength << "];" << std::endl;
 
-        pubNode.publish(sstream.str());
+        sstream << "H = [" << H << "];" << std::endl;
+        sstream << "M = [" << M << "];" << std::endl;
+        sstream << "Mi = [" << Mi << "];" << std::endl;
+        sstream << "target = [" << target << "];" << std::endl;
+
+//        pubNode.publish(sstream.str());
 
         return 0;
     }
 
     bool
     RRTSearch(State *goalPtr, State *statePtr, FuncCallBack isStateValid, State **path, int *pathLen, double turnRadius,
-              double planTime) {
+              double planTime, double lambda, double widthScale, int numberBasis) {
         initROS();
         MinimalPublisher pubNode;
 
@@ -268,29 +284,25 @@ public:
 
             og::PathGeometric solPath = ss.getSolutionPath();
             solPath.interpolate(100);
-
             solution = solPath.getStates();
 
-            *path = new State[solution.size()];
-            std::vector<State> pathVec;
-            *pathLen = solution.size();
-            auto point = path[0];
+            pathVec_.clear();
+            pathVec_.assign(solution.size(), {});
             for (auto i = 0; i < solution.size(); i++) {
 //                auto state3D = solution[i]->as<ob::SE2StateSpace::StateType>();
 //                point->x = state3D->getX();
 //                point->y = state3D->getY();
 //                point->z = state3D->getYaw();
-
                 auto s = solution[i]->as<ob::RealVectorStateSpace::StateType>();
-                point->x = s->values[0];
-                point->y = s->values[1];
-                point->z = s->values[2];
-                pathVec.emplace_back(*point);
-
-                point++;
+                pathVec_[i].x = s->values[0];
+                pathVec_[i].y = s->values[1];
+                pathVec_[i].z = s->values[2];
             }
 
-            testStuff(pubNode, pathVec);
+            smoothPath(pubNode, pathVec_, lambda, widthScale, numberBasis);
+            *path = pathVec_.data();
+            *pathLen = pathVec_.size();
+
         }
 
 
@@ -298,7 +310,8 @@ public:
     }
 
 private:
-    State **path = nullptr;
+//    State **path = nullptr;
+    std::vector<State> pathVec_;
 
 };
 
@@ -312,13 +325,14 @@ void Destroy(std::intptr_t handle) {
 }
 
 bool RRTSearch(std::intptr_t handle, std::intptr_t goalPtrIn, std::intptr_t statePtrIn,
-               FuncCallBack isStateValid, std::intptr_t *pathIn, int *pathLen, double turnRadius, double planTime) {
+               FuncCallBack isStateValid, std::intptr_t *pathIn, int *pathLen, double turnRadius, double planTime,
+               double lambda, double widthScale, int numberBasis) {
     auto ptr = (UnityOMPLInterface *) handle;
     auto goalPtr = (State *) goalPtrIn;
     auto statePtr = (State *) statePtrIn;
     auto path = (State **) pathIn;
 
-    return ptr->RRTSearch(goalPtr, statePtr, isStateValid, path, pathLen, turnRadius, planTime);
+    return ptr->RRTSearch(goalPtr, statePtr, isStateValid, path, pathLen, turnRadius, planTime, lambda, widthScale, numberBasis);
 
 }
 

@@ -18,6 +18,9 @@ public class CPPBehavior : MonoBehaviour
     [SerializeField] double turnRadius;
     [SerializeField] double inflate;
     [SerializeField] double planTime;
+    [SerializeField] private double lambda;
+    [SerializeField] private double widthScale;
+    [SerializeField] private int numberBasis;
 
     private UnityOMPLInterface OMLInterface;
     
@@ -58,7 +61,7 @@ public class CPPBehavior : MonoBehaviour
             goalState.y = goal.position.y;
             goalState.z = 0;
             count = 0;
-            var points = OMLInterface.plan(goalState, turnRadius, planTime);
+            var points = OMLInterface.plan(goalState, turnRadius, planTime, lambda, widthScale, numberBasis);
             lineRenderer.positionCount = points.Count;
             int ind = 0;
             foreach (var point in points)

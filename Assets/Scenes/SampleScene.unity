@@ -625,6 +625,9 @@ MonoBehaviour:
   turnRadius: 0.5
   inflate: 0.2
   planTime: 1
+  lambda: 0.001
+  widthScale: 0.05
+  numberBasis: 10
 --- !u!65 &1175450307
 BoxCollider:
   m_ObjectHideFlags: 0
