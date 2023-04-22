@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Eigen/Core"
+#include <qpOASES/QProblem.hpp>
 
 #if defined(_MSC_VER)
 #define MY_LIB_API __declspec(dllexport) // Microsoft
@@ -13,6 +15,7 @@
 typedef bool(*FuncCallBack)();
 
 void initROS();
+Eigen::VectorXd gaussian_rbf(const Eigen::MatrixXd & x, const Eigen::VectorXd & mu, double sigma);
 
 extern "C" {
 MY_LIB_API bool

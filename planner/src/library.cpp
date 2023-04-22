@@ -20,14 +20,8 @@ namespace og = ompl::geometric;
 using namespace std::chrono_literals;
 
 
-
-
-#include "hpipm-cpp/hpipm-cpp.hpp"
-
 #include <iostream>
 #include <vector>
-#include "Eigen/Core"
-#include <qpOASES.hpp>
 
 
 
@@ -83,12 +77,24 @@ void initROS() {
 }
 
 
+Eigen::VectorXd gaussian_rbf(const Eigen::MatrixXd & x, const Eigen::VectorXd & mu, double sigma) {
+  auto delta = (x.rowwise() - mu.transpose());
+  auto delta2 = delta.array() * delta.array();
+  auto dist = delta2.rowwise().sum();
+
+  return exp(-dist/(2 * sigma * sigma));
+
+}
+
 class UnityOMPLInterface {
 public:
     int testStuff(MinimalPublisher & pubNode, const std::vector<State>& pathVec) {
         std::stringstream sstream;
 
         using namespace qpOASES;
+
+
+
 
         /* Setup data of first QP. */
         real_t H[2 * 2] = {1.0, 0.0, 0.0, 0.5};
@@ -201,7 +207,7 @@ public:
             pubNode.publish(sstream.str());
 
             og::PathGeometric solPath = ss.getSolutionPath();
-            solPath.interpolate(1000);
+//            solPath.interpolate(1000);
 
             solution = solPath.getStates();
 
