@@ -26,8 +26,8 @@ typedef std::optional<Eigen::VectorXd> optionalVector;
 
 Eigen::VectorXd
 SolveQP(const Eigen::MatrixXd &H, const Eigen::VectorXd &g, const optionalMatrix &A, const optionalVector &lb,
-      const optionalVector &ub,
-      const optionalVector &lbA, const optionalVector &ubA, qpOASES::int_t nWSR);
+        const optionalVector &ub,
+        const optionalVector &lbA, const optionalVector &ubA, qpOASES::int_t nWSR);
 
 extern "C" {
 MY_LIB_API bool

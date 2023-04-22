@@ -2,7 +2,6 @@
 #include <Eigen/Core>
 #include <gtest/gtest.h>
 #include <plotty/matplotlibcpp.hpp>
-#include <Eigen/Dense>
 
 
 TEST(OMPL, search) {
@@ -57,7 +56,6 @@ TEST(QP, fitBasis) {
 
 
 TEST(PLOTTY, simple) {
-// Simple:
     std::vector<double> v({1, 2, 3, 4});
     plotty::plot(v);
     plotty::show();
