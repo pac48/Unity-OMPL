@@ -15,12 +15,11 @@ public class CPPBehavior : MonoBehaviour
     // OMPL 
     [SerializeField] Transform goal;
     public Collider validBounds;
-    [SerializeField] double turnRadius;
     [SerializeField] double inflate;
     [SerializeField] double planTime;
     [SerializeField] private double lambda;
     [SerializeField] private double widthScale;
-    [SerializeField] private int numberBasis;
+    [SerializeField] private double numBasisPerMeter;
 
     private UnityOMPLInterface OMLInterface;
     
@@ -50,7 +49,7 @@ public class CPPBehavior : MonoBehaviour
         }
 
 
-        if (true ||Input.GetKey(KeyCode.Space) && !spaceKeyPressed)
+        if (true || Input.GetKey(KeyCode.Space) && !spaceKeyPressed)
         {
             bool autoSimulation = Physics.autoSimulation;
             Physics.autoSimulation = false;
@@ -61,7 +60,7 @@ public class CPPBehavior : MonoBehaviour
             goalState.y = goal.position.y;
             goalState.z = 0;
             count = 0;
-            var points = OMLInterface.plan(goalState, turnRadius, planTime, lambda, widthScale, numberBasis);
+            var points = OMLInterface.plan(goalState, planTime, lambda, widthScale, numBasisPerMeter);
             lineRenderer.positionCount = points.Count;
             int ind = 0;
             foreach (var point in points)

@@ -45,7 +45,7 @@ public class UnityOMPLInterface
         Marshal.FreeHGlobal(pathPtr);
     }
 
-    public List<State> plan(State goal, double turnRadius, double planTime, double lambda, double widthScale, int numberBasis)
+    public List<State> plan(State goal, double planTime, double lambda, double widthScale, double numBasisPerMeter)
     {
         State stateStruct = getState();
 
@@ -54,7 +54,7 @@ public class UnityOMPLInterface
         
         State tmpState = getState();
         
-        bool solved = RRTSearch(handle, goalPtr, statePtr, cb, ref pathPtr, ref pathLen, turnRadius, planTime, lambda, widthScale, numberBasis);
+        bool solved = RRTSearch(handle, goalPtr, statePtr, cb, ref pathPtr, ref pathLen, planTime, lambda, widthScale, numBasisPerMeter);
         List<State> path = new List<State>();
         if (solved)
         {
@@ -86,6 +86,6 @@ public class UnityOMPLInterface
     private static extern void Destroy(IntPtr handle);
     [DllImport("libUnityLib.so", EntryPoint = "RRTSearch", CallingConvention = CallingConvention.Cdecl)] 
     private static extern bool RRTSearch(IntPtr handle, IntPtr gPtr, IntPtr sPtr, IsStateValidDelegate cb, ref IntPtr path, 
-ref int pathLen, double turnRadius, double planTime, double lambda, double widthScale, int numberBasis);
+ref int pathLen, double planTime, double lambda, double widthScale, double numBasisPerMeter);
 
 }

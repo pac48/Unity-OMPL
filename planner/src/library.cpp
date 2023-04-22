@@ -65,11 +65,11 @@ void initROS() {
         auto name = "ros_node";
         rclcpp::init(1, &name);
 
-//        auto myThread = new std::thread([]() {
-//            rclcpp::spin(std::make_shared<MinimalPublisher>());
-//            rclcpp::shutdown();
-//
-//        });
+        auto myThread = new std::thread([]() {
+            rclcpp::spin(std::make_shared<MinimalPublisher>());
+            rclcpp::shutdown();
+
+        });
 
         rosInitialized = true;
     }
@@ -80,7 +80,7 @@ Eigen::VectorXd gaussian_rbf(const Eigen::MatrixXd &x, const Eigen::VectorXd &mu
     auto delta2 = delta.array() * delta.array();
     auto dist = delta2.rowwise().sum();
 
-    return exp(-dist / (2 * sigma * sigma));
+    return exp(-dist / (2 * sigma));
 
 }
 
@@ -117,8 +117,10 @@ SolveQP(const Eigen::MatrixXd &H, const Eigen::VectorXd &g, const optionalMatrix
     const real_t *ub_arr = nullptr;
     const real_t *lbA_arr = nullptr;
     const real_t *ubA_arr = nullptr;
+    Eigen::MatrixXd AT;
     if (A.has_value()) {
-        A_arr = A.value().data();
+        AT = A.value().transpose();
+        A_arr = AT.data();
     }
     if (lb.has_value()) {
         lb_arr = lb.value().data();
@@ -127,20 +129,23 @@ SolveQP(const Eigen::MatrixXd &H, const Eigen::VectorXd &g, const optionalMatrix
         ub_arr = ub.value().data();
     }
     if (lbA.has_value()) {
-        lbA_arr = lb.value().data();
+        lbA_arr = lbA.value().data();
     }
     if (ubA.has_value()) {
-        ubA_arr = ub.value().data();
+        ubA_arr = ubA.value().data();
     }
 
     /* Setting up QProblem object. */
-    QProblem example(H.cols(), 0);
+    QProblem example(H.cols(), A->rows(), HessianType::HST_POSDEF);
 
     Options options;
+    options.setToReliable();
+    options.enableEqualities = BooleanType::BT_TRUE;
     example.setOptions(options);
 
     /* Solve first QP. */
-    example.init(H_arr, g_arr, A_arr, lb_arr, ub_arr, lbA_arr, ubA_arr, nWSR);
+    auto ret = example.init(H_arr, g_arr, A_arr, lb_arr, ub_arr, lbA_arr, ubA_arr, nWSR);
+
 
     /* Get and print solution of first QP. */
     real_t xOpt_arr[H.cols()];
@@ -152,8 +157,9 @@ SolveQP(const Eigen::MatrixXd &H, const Eigen::VectorXd &g, const optionalMatrix
 
 class UnityOMPLInterface {
 public:
-    int smoothPath(MinimalPublisher &pubNode, std::vector<State> &pathVec, double lambda, double widthScale, int numberBasis) {
+    int smoothPath(std::vector<State> &pathVec, double lambda, double widthScale, double numBasisPerMeter) {
         std::stringstream sstream;
+        MinimalPublisher pubNode;
 
         auto pathVecCopy = pathVec;
         Eigen::VectorXd tmp = Eigen::Map<Eigen::VectorXf>((float *) pathVecCopy.data(), 3*pathVecCopy.size()).cast<double>();
@@ -163,13 +169,14 @@ public:
         Eigen::VectorXd pathlength = Eigen::VectorXd::Zero(pathVec.size());
         std::partial_sum(dist.begin(), dist.end(), pathlength.begin()+1, std::plus<double>());
 
-//        double lambda = 0.001;
-//        int numberBasis = 10;
-        double width = pathlength.tail(1)(0)*widthScale;
+//        double lambda = 0.001;;
+        double width = widthScale; // pathlength.tail(1)(0)*widthScale;
 //        double width = .5;
         int numPoints = pathlength.size();
-//        std::pair<double, double> range = {0.0, pathlength.tail(1)(0)};
-        std::pair<double, double> range = {-1, 1};
+        std::pair<double, double> range = {0.0, pathlength.tail(1)(0)};
+//        std::pair<double, double> range = {-1, 1};
+        int numberBasis = numBasisPerMeter*range.second + 3; // add some extra to make problem feasible
+
 
         Eigen::MatrixXd Mi = get_rbf_basis(numberBasis, width, numPoints, range);
         Eigen::MatrixXd M = Eigen::MatrixXd::Zero(2*numPoints+2*numberBasis, 2*numberBasis);
@@ -182,12 +189,31 @@ public:
         Eigen::VectorXd target(2*numPoints + 2*numberBasis);
         target << path.col(0), Eigen::VectorXd::Zero(numberBasis), path.col(1), Eigen::VectorXd::Zero(numberBasis);
 
+        Eigen::MatrixXd A = Eigen::MatrixXd::Zero(4, 2*numberBasis);
+        A.block(0, 0, 1, numberBasis) = Mi.row(0);
+        A.block(1, 0, 1, numberBasis) = Mi.row(numPoints-1);
+        A.block(2, numberBasis, 1, numberBasis) = Mi.row(0);
+        A.block(3, numberBasis, 1, numberBasis) = Mi.row(numPoints-1);
+
+//        A.block(4, 0, 1, numberBasis) = Mi.row(0);
+//        A.block(5, 0, 1, numberBasis) = Mi.row(numPoints-1);
+//        A.block(6, numberBasis, 1, numberBasis) = Mi.row(0);
+//        A.block(7, numberBasis, 1, numberBasis) = Mi.row(numPoints-1);
+
+
+        Eigen::VectorXd lbA(4);
+        Eigen::VectorXd ubA(4);
+        lbA << pathVec[0].x, pathVec.back().x, pathVec[0].y, pathVec.back().y;
+        ubA << pathVec[0].x, pathVec.back().x, pathVec[0].y, pathVec.back().y;
+//        Eigen::VectorXd lb = -100000 * Eigen::VectorXd::Ones(2*numberBasis);
+//        Eigen::VectorXd ub = -lb;
+
         Eigen::MatrixXd H = M.transpose() * M;
         H = 0.5 * (H + H.transpose());
         Eigen::MatrixXd g = -M.transpose() * target;
 
-        qpOASES::int_t nWSR = 1E5;
-        Eigen::VectorXd weights = SolveQP(H, g, {}, {}, {}, {}, {}, nWSR);
+        qpOASES::int_t nWSR = 1E3;
+        Eigen::VectorXd weights = SolveQP(H, g, A, {}, {}, lbA, ubA, nWSR);
         Eigen::VectorXd out = M * weights;
         Eigen::MatrixXd pathSmooth = out.reshaped(numPoints + numberBasis, 2);
 
@@ -197,21 +223,25 @@ public:
         }
 
 
-        sstream << "H = [" << H << "];" << std::endl;
-        sstream << "M = [" << M << "];" << std::endl;
-        sstream << "Mi = [" << Mi << "];" << std::endl;
-        sstream << "target = [" << target << "];" << std::endl;
+//        sstream << "H = [" << H << "];" << std::endl;
+//        sstream << "M = [" << M << "];" << std::endl;
+//        sstream << "Mi = [" << Mi << "];" << std::endl;
+//        sstream << "target = [" << target << "];" << std::endl;
+        sstream << "A = [" << A << "];" << std::endl;
+        sstream << "A*weights = [" << A*weights << "];" << std::endl;
+        sstream << "lbA = [" << lbA << "];" << std::endl;
+        sstream << "ubA = [" << ubA << "];" << std::endl;
 
-//        pubNode.publish(sstream.str());
+        pubNode.publish(sstream.str());
 
         return 0;
     }
 
     bool
-    RRTSearch(State *goalPtr, State *statePtr, FuncCallBack isStateValid, State **path, int *pathLen, double turnRadius,
-              double planTime, double lambda, double widthScale, int numberBasis) {
+    RRTSearch(State *goalPtr, State *statePtr, FuncCallBack isStateValid, State **path, int *pathLen,
+              double planTime, double lambda, double widthScale, double numBasisPerMeter) {
         initROS();
-        MinimalPublisher pubNode;
+//
 
 //        ob::RealVectorBounds bounds(2);
 //        bounds.low[0] = -5;
@@ -286,22 +316,28 @@ public:
             solPath.interpolate(100);
             solution = solPath.getStates();
 
-            pathVec_.clear();
-            pathVec_.assign(solution.size(), {});
+//            pathVec_.clear();
+//            pathVec_.assign(solution.size(), {});
+            if (out){
+                delete out;
+            }
+            out = new State[solution.size()];
             for (auto i = 0; i < solution.size(); i++) {
 //                auto state3D = solution[i]->as<ob::SE2StateSpace::StateType>();
 //                point->x = state3D->getX();
 //                point->y = state3D->getY();
 //                point->z = state3D->getYaw();
                 auto s = solution[i]->as<ob::RealVectorStateSpace::StateType>();
-                pathVec_[i].x = s->values[0];
-                pathVec_[i].y = s->values[1];
-                pathVec_[i].z = s->values[2];
+                out[i].x = s->values[0];
+                out[i].y = s->values[1];
+                out[i].z = s->values[2];
             }
+            std::vector<State> pathVec(out, out+solution.size());
+            smoothPath(pathVec, lambda, widthScale, numBasisPerMeter);
 
-            smoothPath(pubNode, pathVec_, lambda, widthScale, numberBasis);
-            *path = pathVec_.data();
-            *pathLen = pathVec_.size();
+            memcpy(out, pathVec.data(), pathVec.size()*sizeof(State));
+            *path = out;//pathVec_.data();
+            *pathLen = pathVec.size();
 
         }
 
@@ -310,8 +346,7 @@ public:
     }
 
 private:
-//    State **path = nullptr;
-    std::vector<State> pathVec_;
+    State *out = nullptr;
 
 };
 
@@ -325,14 +360,14 @@ void Destroy(std::intptr_t handle) {
 }
 
 bool RRTSearch(std::intptr_t handle, std::intptr_t goalPtrIn, std::intptr_t statePtrIn,
-               FuncCallBack isStateValid, std::intptr_t *pathIn, int *pathLen, double turnRadius, double planTime,
-               double lambda, double widthScale, int numberBasis) {
+               FuncCallBack isStateValid, std::intptr_t *pathIn, int *pathLen, double planTime,
+               double lambda, double widthScale, double numBasisPerMeter) {
     auto ptr = (UnityOMPLInterface *) handle;
     auto goalPtr = (State *) goalPtrIn;
     auto statePtr = (State *) statePtrIn;
     auto path = (State **) pathIn;
 
-    return ptr->RRTSearch(goalPtr, statePtr, isStateValid, path, pathLen, turnRadius, planTime, lambda, widthScale, numberBasis);
+    return ptr->RRTSearch(goalPtr, statePtr, isStateValid, path, pathLen, planTime, lambda, widthScale, numBasisPerMeter);
 
 }
 

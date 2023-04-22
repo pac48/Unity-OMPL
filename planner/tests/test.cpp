@@ -38,7 +38,7 @@ TEST(QP, fitBasis) {
     Eigen::VectorXd target = Eigen::VectorXd::LinSpaced(numPoints, 0, 15);
     target = sin(target.array());
 
-    Eigen::VectorXd lb = -1000 * Eigen::VectorXd::Ones(numberBasis);
+    Eigen::VectorXd lb = -1000000.0 * Eigen::VectorXd::Ones(numberBasis);
     Eigen::VectorXd ub = -lb;
     qpOASES::int_t nWSR = 1E3;
 

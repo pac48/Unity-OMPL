@@ -622,12 +622,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   goal: {fileID: 82081720}
   validBounds: {fileID: 2134671615}
-  turnRadius: 0.5
   inflate: 0.2
   planTime: 1
   lambda: 0.001
-  widthScale: 0.05
-  numberBasis: 10
+  widthScale: 10
+  numBasisPerMeter: 1
 --- !u!65 &1175450307
 BoxCollider:
   m_ObjectHideFlags: 0
