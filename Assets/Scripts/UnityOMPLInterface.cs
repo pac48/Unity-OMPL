@@ -22,20 +22,25 @@ public struct CArray {
 };
 
 public delegate bool IsStateValidDelegate(ref State state);
+public delegate bool ClosestPointDelegate(ref State state, ref State point);
+public delegate bool ClosestPointExternalDelegate(Vector3 state, ref Vector3 point);
 
 [StructLayout(LayoutKind.Sequential)]
 public struct RRTSearchInput
 {
     public State goal;
     public State state;
+    public double radius;
     public State planningCenter;
     public State planningSize;
-	public double planTime;
+    public double planTime;
+    public int pathResolution;
 	public double dirScalar;
 	public double lambda;
 	public double widthScale;
 	public double numBasisPerMeter;
-	public IsStateValidDelegate cb;
+	public IsStateValidDelegate validState;
+	public ClosestPointDelegate closestPoint;
 }
 
 
@@ -54,11 +59,13 @@ public class UnityOMPLInterface
     private int pathLen;
     private IsStateValidDelegate cb;
     private Func<Vector3, bool> IsStateValidExtern;
+    private ClosestPointExternalDelegate ClosestPointExtern;
     private Func<State> getState;
     private Action<State> restoreState;
-    public UnityOMPLInterface(Func<Vector3, bool> IsStateValidExternIn, Func<State> getStateIn, Action<State> restoreStateIn)
+    public UnityOMPLInterface(Func<Vector3, bool> IsStateValidExternIn, ClosestPointExternalDelegate ClosestPointExternIn, Func<State> getStateIn, Action<State> restoreStateIn)
     {
         IsStateValidExtern = IsStateValidExternIn;
+        ClosestPointExtern = ClosestPointExternIn;
         getState = getStateIn;
         restoreState = restoreStateIn;
         handle = Init();
@@ -68,20 +75,23 @@ public class UnityOMPLInterface
         Destroy(handle);
     }
 
-    public List<State> plan(State goal, Vector2 planningCenter, Vector2 planningSize,  double planTime, double dirScalar, double lambda, double widthScale, double numBasisPerMeter)
+    public List<State> plan(double radius,State goal, Vector2 planningCenter, Vector2 planningSize, double planTime, int pathResolution, double dirScalar, double lambda, double widthScale, double numBasisPerMeter)
     {
         State stateStruct = getState();
         State tmpState = getState();
         
         RRTSearchInput input = new RRTSearchInput();
+        input.radius = radius; 
         input.goal = goal; 
         input.state = tmpState; 
-        input.cb = new IsStateValidDelegate(IsStateValid);
+        input.validState = new IsStateValidDelegate(IsStateValid);
+        input.closestPoint = new ClosestPointDelegate(GetClosestPoint);
         input.planningCenter.x = planningCenter.x; 
         input.planningCenter.y = planningCenter.y; 
         input.planningSize.x = planningSize.x; 
-        input.planningSize.y = planningSize.y; 
-        input.planTime = planTime; 
+        input.planningSize.y = planningSize.y;
+        input.pathResolution = pathResolution; 
+        input.planTime = planTime;
         input.dirScalar = dirScalar;
         input.lambda = lambda;
         input.widthScale = widthScale;
@@ -110,11 +120,24 @@ public class UnityOMPLInterface
 
     private bool IsStateValid(ref State stateStruct)
     {
-        //return false;
-        //State stateStruct = (State)Marshal.PtrToStructure(statePtr, typeof(State));
         Vector3 state = new Vector3(stateStruct.x, stateStruct.y, stateStruct.theta);
         return IsStateValidExtern(state);
     }
+    
+    private bool GetClosestPoint(ref State stateStruct, ref State pointStruct)
+    {
+        Vector3 state = new Vector3(stateStruct.x, stateStruct.y, stateStruct.theta);
+        Vector3 point = new Vector3();
+         bool isPoint = ClosestPointExtern(state, ref point);
+         if (isPoint)
+         {
+             pointStruct.x = point.x;
+             pointStruct.y = point.y;
+        }
+         return isPoint;
+    }
+    
+    
 
     [DllImport("libUnityLib.so", EntryPoint = "Init", CallingConvention = CallingConvention.Cdecl)] 
     private static extern IntPtr Init();

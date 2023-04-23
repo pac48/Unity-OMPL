@@ -14,9 +14,9 @@
 #endif
 
 struct State {
-  float x;
-  float y;
-  float theta;
+  float x = 0;
+  float y = 0;
+  float theta = 0;
 };
 
 struct CArray {
@@ -26,20 +26,23 @@ struct CArray {
 
 
 typedef bool(*ValidStateCallBack)(State&);
-typedef State(*ClosestPointCallBack)();
+typedef bool(*ClosestPointCallBack)(State&, State&);
 
 
 struct RRTSearchInput {
   State goal;
   State state;
+  double radius;
   State planningCenter;
   State planningSize;
   double planTime;
+  int pathResolution;
   double dirScalar;
   double lambda;
   double widthScale;
   double numBasisPerMeter;
-  ValidStateCallBack cb;
+  ValidStateCallBack validState;
+  ClosestPointCallBack closestPoint;
 };
 
 struct RRTSearchOutput {
@@ -55,15 +58,17 @@ Eigen::VectorXd gaussian_rb_derivative(const Eigen::MatrixXd &x, const Eigen::Ve
 
 std::pair<Eigen::MatrixXd, Eigen::MatrixXd> get_rbf_gradient_basis(int numberBasis, double width, int numPoints, std::pair<double, double> range);
 
-Eigen::MatrixXd get_rbf_basis(int numberBasis, double width, int numPoints, std::pair<double, double> range);
+Eigen::MatrixXd get_rbf_basis(Eigen::VectorXd & s, int numberBasis, double width, std::pair<double, double> range);
 
 typedef std::optional<Eigen::MatrixXd> optionalMatrix;
 typedef std::optional<Eigen::VectorXd> optionalVector;
 
 Eigen::VectorXd
-SolveQP(const Eigen::MatrixXd &H, const Eigen::VectorXd &g, const optionalMatrix &A, const optionalVector &lb,
+SolveQP(const Eigen::MatrixXd &H, const Eigen::VectorXd &g, const optionalMatrix &A,
+        const optionalVector &lb,
         const optionalVector &ub,
-        const optionalVector &lbA, const optionalVector &ubA, qpOASES::int_t nWSR);
+        const optionalVector &lbA, const optionalVector &ubA, qpOASES::int_t nWSR,
+        const optionalVector& xOpt);
 
 extern "C" {
 //MY_LIB_API bool

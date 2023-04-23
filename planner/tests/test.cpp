@@ -16,8 +16,9 @@ TEST(QP, rbf) {
     double width = .5;
     int numPoints = 100;
     std::pair<double, double> range = {-1, 1};
+    Eigen::VectorXd s = Eigen::VectorXd::LinSpaced(numPoints, range.first, range.second);
+    Eigen::MatrixXd A = get_rbf_basis(s, numberBasis, width, range);
 
-    Eigen::MatrixXd A = get_rbf_basis(numberBasis, width, numPoints, range);
     for (auto i = 0; i < A.cols(); i++) {
         plotty::plot(A.col(i));
     }
@@ -31,8 +32,8 @@ TEST(QP, fitBasis) {
     double width = .5;
     int numPoints = 100;
     std::pair<double, double> range = {-1, 1};
-
-    Eigen::MatrixXd M = get_rbf_basis(numberBasis, width, numPoints, range);
+    Eigen::VectorXd s = Eigen::VectorXd::LinSpaced(numPoints, range.first, range.second);
+    Eigen::MatrixXd M = get_rbf_basis(s, numberBasis, width, range);
 
     Eigen::VectorXd target = Eigen::VectorXd::LinSpaced(numPoints, 0, 15);
     target = sin(target.array());
@@ -44,7 +45,7 @@ TEST(QP, fitBasis) {
     Eigen::MatrixXd H = M.transpose() * M;
     Eigen::MatrixXd g = -M.transpose() * target;
 
-    Eigen::VectorXd weights = SolveQP(H, g, {}, {lb}, {ub}, {}, {}, nWSR);
+    Eigen::VectorXd weights = SolveQP(H, g, {}, {lb}, {ub}, {}, {}, nWSR, {});
     Eigen::VectorXd out = M * weights;
 
     plotty::plot(target);
@@ -60,9 +61,10 @@ TEST(QP, fitBasisDerivative) {
     double width = 5;
     int numPoints = 1000;
     std::pair<double, double> range = {-1, 1};
+    Eigen::VectorXd s = Eigen::VectorXd::LinSpaced(numPoints, range.first, range.second);
 
     Eigen::MatrixXd M = Eigen::MatrixXd::Zero(2 * numPoints, 2 * numberBasis);
-    Eigen::MatrixXd Mi = get_rbf_basis(numberBasis, width, numPoints, range);
+    Eigen::MatrixXd Mi = get_rbf_basis(s, numberBasis, width, range);
     M.block(0, 0, numPoints, numberBasis) = Mi;
     M.block(numPoints, numberBasis, numPoints, numberBasis) = Mi;
 
@@ -87,7 +89,7 @@ TEST(QP, fitBasisDerivative) {
     Eigen::VectorXd ubA(1);
     ubA << 0;
 
-    Eigen::VectorXd weights = SolveQP(H, g, A, {}, {}, lbA, ubA, nWSR);
+    Eigen::VectorXd weights = SolveQP(H, g, A, {}, {}, lbA, ubA, nWSR, {});
 //    Eigen::VectorXd weights = SolveQP(H, g, {}, {}, {}, {}, {}, nWSR);
     Eigen::VectorXd out = M * weights;
 

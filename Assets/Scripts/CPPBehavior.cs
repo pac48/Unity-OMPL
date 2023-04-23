@@ -19,7 +19,8 @@ public class CPPBehavior : MonoBehaviour
     // OMPL 
     [SerializeField] Transform goal;
     public Collider validBounds;
-    [SerializeField] double inflate;
+    [SerializeField] double radius;
+    [SerializeField] int pathResolution;
     [SerializeField] double planTime;
     [SerializeField] double dirScalar;
     [SerializeField] private double lambda;
@@ -33,7 +34,7 @@ public class CPPBehavior : MonoBehaviour
     void Start()
     {
         robotCollider = GetComponent<Collider>();
-        OMLInterface = new UnityOMPLInterface(IsStateValid, GetState, RestoreState);
+        OMLInterface = new UnityOMPLInterface(IsStateValid, GetClosestPoint, GetState, RestoreState);
         
         lineRenderer = GetComponent<LineRenderer>();
         lineRenderer.positionCount = 0;
@@ -54,7 +55,7 @@ public class CPPBehavior : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        Collider[] collidersTest = Physics.OverlapSphere(gameObject.transform.position, 1.0f);
+        Vector3 closest = GetComponent<Collider>().ClosestPoint(gameObject.transform.position);
         
         if (!Input.GetKey(KeyCode.Space))
         {
@@ -76,7 +77,7 @@ public class CPPBehavior : MonoBehaviour
             goalState.y = goal.position.y;
             goalState.theta = ((float) Math.PI)*goal.transform.eulerAngles.z/180.0f;
             count = 0;
-            var points = OMLInterface.plan(goalState, planningCenter, planningSize, planTime, dirScalar, lambda, widthScale, numBasisPerMeter);
+            var points = OMLInterface.plan(radius , goalState, planningCenter, planningSize, planTime,pathResolution, dirScalar, lambda, widthScale, numBasisPerMeter);
             lineRenderer.positionCount = points.Count;
             int ind = 0;
             foreach (var point in points)
@@ -101,6 +102,10 @@ public class CPPBehavior : MonoBehaviour
         size.x = planningSize.x;
         size.y = planningSize.y;
         Gizmos.DrawCube(pos, size);
+        
+        Gizmos.color = new Color(1, 0, 0, 0.4f);
+        Gizmos.DrawSphere(gameObject.transform.position, (float)radius);
+        
     }
 
     public State GetState()
@@ -121,28 +126,6 @@ public class CPPBehavior : MonoBehaviour
         gameObject.transform.position = pos;
     }
 
-    //void OnCollisionStay(Collision collision)
-    //{
-    //    Debug.Log("Do something else here");
-    //}
-    void OnCollisionStay(Collision collision)
-    {
-        if (collision.gameObject != validBounds.gameObject)
-        {
-            collided = true;
-            //Debug.Log("Collision: " + collision.collider.name);
-        }
-      //  else
-       // {
-        //    collided = false;
-        //}
-
-    }
-    //void OnCollisionStay(Collision collision)
-    //{
-    //    collided = true;
-     //   Debug.Log("Collision: " + collision.collider.name);
-   // }
     public bool IsStateValid(Vector3 state)
     {
         state.z = 0; // this is hacky
@@ -155,13 +138,9 @@ public class CPPBehavior : MonoBehaviour
             {
                 continue;
             }
-
-            if (collider == validBounds)
-            {
-                continue;
-            }
+            
             Vector3 closest = collider.ClosestPoint(state);
-            if (Vector3.Distance(closest, state) < inflate)
+            if (Vector3.Distance(closest, state) < radius)
             {
                 valid = false;
                 break;
@@ -169,6 +148,33 @@ public class CPPBehavior : MonoBehaviour
         }
 
         return valid;
+    }
+    
+    public bool GetClosestPoint(Vector3 state, ref Vector3 point)
+    {
+        Collider[] colliders = Physics.OverlapSphere(state, (float) radius);
+        float dist = float.MaxValue;
+        Vector3 ret = new Vector3();
+        ret.x = dist;
+        ret.y = dist;
+        bool isPoint = false;
+        
+        foreach (Collider collider in colliders) {
+            if (collider.gameObject == gameObject)
+            {
+                continue;
+            }
+            Vector3 closest = collider.ClosestPoint(state);
+            float newDist = Vector3.Distance(closest, state);
+            if (newDist < dist)
+            {
+                dist = newDist;
+                point = closest;
+                isPoint = true;
+            }
+        }
+
+        return isPoint;
     }
 
 }
