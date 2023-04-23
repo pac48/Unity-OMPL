@@ -216,14 +216,14 @@ public:
 
     initROS();
 
-    ob::RealVectorBounds bounds(3);
-    bounds.low[0] = -5;
-    bounds.low[1] = -5;
-    bounds.low[2] = -0.001;
-    bounds.high[0] = 5;
-    bounds.high[1] = 5;
-    bounds.high[2] = 0.001;
-    auto space(std::make_shared<ob::RealVectorStateSpace>(3));
+    ob::RealVectorBounds bounds(2);
+    bounds.low[0] = input->planningCenter.x - .5*input->planningSize.x;
+    bounds.low[1] = input->planningCenter.y - .5*input->planningSize.y;
+//    bounds.low[2] = -0.001;
+      bounds.high[0] = input->planningCenter.x + .5*input->planningSize.x;
+      bounds.high[1] = input->planningCenter.y + .5*input->planningSize.y;
+//    bounds.high[2] = 0.001;
+    auto space(std::make_shared<ob::RealVectorStateSpace>(2));
 
 
     space->setBounds(bounds);
@@ -236,7 +236,6 @@ public:
       State test;
       test.x = s->values[0];
       test.y = s->values[1];
-      test.z = s->values[2];
 
       return input->cb(test);
     });
@@ -244,12 +243,10 @@ public:
     ob::ScopedState<> start(space);
     start[0] = input->state.x;
     start[1] = input->state.y;
-    start[2] = input->state.z;
 
     ob::ScopedState<> goal(space);
     goal[0] = input->goal.x;
     goal[1] = input->goal.y;
-    goal[2] = input->goal.z;
 
     auto planner(std::make_shared<ompl::geometric::RRTConnect>(si));
     ss.setPlanner(planner);
@@ -282,7 +279,7 @@ public:
         auto s = solution[i]->as<ob::RealVectorStateSpace::StateType>();
         out[i].x = s->values[0];
         out[i].y = s->values[1];
-        out[i].z = s->values[2];
+        out[i].z = 0.0;
       }
       std::vector<State> pathVec(out, out + solution.size());
       smoothPath(pathVec, input);

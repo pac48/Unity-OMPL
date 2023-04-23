@@ -12,6 +12,10 @@ public class CPPBehavior : MonoBehaviour
     private int count = 0;
     private LineRenderer lineRenderer;
     private Collider robotCollider;
+
+    [SerializeField] Vector2 planningCenter;
+    [SerializeField] Vector2 planningSize;
+
     // OMPL 
     [SerializeField] Transform goal;
     public Collider validBounds;
@@ -37,12 +41,15 @@ public class CPPBehavior : MonoBehaviour
         
         var mesh = GetComponent<MeshFilter>().mesh;
         var vertices = mesh.vertices;
-        int oo = 0;
+        
+       // colliders = Physics.OverlapSphere(gameObject.transform.position, 20.0f);
     }
 
     // Update is called once per frame
     void Update()
     {
+        Collider[] collidersTest = Physics.OverlapSphere(gameObject.transform.position, 1.0f);
+        
         if (!Input.GetKey(KeyCode.Space))
         {
             spaceKeyPressed = false;
@@ -60,7 +67,7 @@ public class CPPBehavior : MonoBehaviour
             goalState.y = goal.position.y;
             goalState.z = 0;
             count = 0;
-            var points = OMLInterface.plan(goalState, planTime, lambda, widthScale, numBasisPerMeter);
+            var points = OMLInterface.plan(goalState, planningCenter, planningSize, planTime, lambda, widthScale, numBasisPerMeter);
             lineRenderer.positionCount = points.Count;
             int ind = 0;
             foreach (var point in points)
@@ -72,6 +79,19 @@ public class CPPBehavior : MonoBehaviour
             Debug.Log("Done Plan, total count: " + count);
         }
 
+    }
+    
+    void OnDrawGizmosSelected()
+    {
+        // Draw a semitransparent red cube at the transforms position
+        Gizmos.color = new Color(0, 1, 0, 0.15f);
+        Vector3 pos = new Vector3();
+        pos.x = planningCenter.x;
+        pos.y = planningCenter.y;
+        Vector3 size = new Vector3();
+        size.x = planningSize.x;
+        size.y = planningSize.y;
+        Gizmos.DrawCube(pos, size);
     }
 
     public State GetState()
@@ -117,13 +137,7 @@ public class CPPBehavior : MonoBehaviour
     public bool IsStateValid(Vector3 state)
     {
         count++;
-        var newPosition = new Vector3();
-        newPosition = state;
-        newPosition.z = 0;
-        gameObject.transform.position = newPosition;
-        Physics.SyncTransforms();
-
-        float robotRadius = 5.0f;
+        float robotRadius = 1.0f;
         bool valid = true;
         Collider[] colliders = Physics.OverlapSphere(state, robotRadius);
         foreach (Collider collider in colliders) {
@@ -131,30 +145,16 @@ public class CPPBehavior : MonoBehaviour
             {
                 continue;
             }
+
             if (collider == validBounds)
             {
-                if (!robotCollider.bounds.Intersects(collider.bounds))
-                {
-                    valid = false;
-                    break;
-                }
                 continue;
             }
-            bool doesIntersect = robotCollider.bounds.Intersects(collider.bounds);
-            if (doesIntersect)
+            Vector3 closest = collider.ClosestPoint(state);
+            if (Vector3.Distance(closest, state) < inflate)
             {
-                Vector3 closest = collider.ClosestPoint(gameObject.transform.position);
-                if (Vector3.Distance(closest, gameObject.transform.position) < inflate)
-                {
-                    valid = false;
-                    break;
-                }
-                //Physics.Simulate(Time.fixedDeltaTime);
-                //if (collided){
-                 //   valid = false;
-                 //   collided = false;
-                  //  break;
-                ///}
+                valid = false;
+                break;
             }
         }
 

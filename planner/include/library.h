@@ -32,6 +32,8 @@ typedef State(*ClosestPointCallBack)();
 struct RRTSearchInput {
   State goal;
   State state;
+  State planningCenter;
+  State planningSize;
   double planTime;
   double lambda;
   double widthScale;

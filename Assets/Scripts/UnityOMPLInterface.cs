@@ -28,6 +28,8 @@ public struct RRTSearchInput
 {
     public State goal;
     public State state;
+    public State planningCenter;
+    public State planningSize;
 	public double planTime;
 	public double lambda;
 	public double widthScale;
@@ -65,7 +67,7 @@ public class UnityOMPLInterface
         Destroy(handle);
     }
 
-    public List<State> plan(State goal, double planTime, double lambda, double widthScale, double numBasisPerMeter)
+    public List<State> plan(State goal, Vector2 planningCenter, Vector2 planningSize, double planTime, double lambda, double widthScale, double numBasisPerMeter)
     {
         State stateStruct = getState();
         State tmpState = getState();
@@ -74,6 +76,10 @@ public class UnityOMPLInterface
         input.goal = goal; 
         input.state = tmpState; 
         input.cb = new IsStateValidDelegate(IsStateValid);
+        input.planningCenter.x = planningCenter.x; 
+        input.planningCenter.y = planningCenter.y; 
+        input.planningSize.x = planningSize.x; 
+        input.planningSize.y = planningSize.y; 
         input.planTime = planTime; 
         input.lambda = lambda;
         input.widthScale = widthScale;
