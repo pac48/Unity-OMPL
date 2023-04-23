@@ -21,11 +21,14 @@ public class CPPBehavior : MonoBehaviour
     public Collider validBounds;
     [SerializeField] double inflate;
     [SerializeField] double planTime;
+    [SerializeField] double dirScalar;
     [SerializeField] private double lambda;
     [SerializeField] private double widthScale;
     [SerializeField] private double numBasisPerMeter;
 
     private UnityOMPLInterface OMLInterface;
+    private Vector3 goalOld;
+    private Vector3 stateOld;
     
     void Start()
     {
@@ -38,6 +41,9 @@ public class CPPBehavior : MonoBehaviour
         lineRenderer.endColor = Color.red;
         lineRenderer.startWidth = 0.1f;
         lineRenderer.endWidth = 0.1f;
+
+        goalOld = new Vector3();
+        stateOld = new Vector3();
         
         var mesh = GetComponent<MeshFilter>().mesh;
         var vertices = mesh.vertices;
@@ -55,9 +61,12 @@ public class CPPBehavior : MonoBehaviour
             spaceKeyPressed = false;
         }
 
-
-        if (true || Input.GetKey(KeyCode.Space) && !spaceKeyPressed)
+        bool cond = Vector3.Distance(goalOld ,goal.position) > 0.01 
+                    || Vector3.Distance(stateOld,gameObject.transform.position) > 0.01;
+        if (cond || Input.GetKey(KeyCode.Space) && !spaceKeyPressed)
         {
+            goalOld = goal.position;
+            stateOld = gameObject.transform.position;
             bool autoSimulation = Physics.autoSimulation;
             Physics.autoSimulation = false;
             spaceKeyPressed = true;
@@ -65,14 +74,14 @@ public class CPPBehavior : MonoBehaviour
             State goalState = new State();
             goalState.x = goal.position.x;
             goalState.y = goal.position.y;
-            goalState.z = 0;
+            goalState.theta = ((float) Math.PI)*goal.transform.eulerAngles.z/180.0f;
             count = 0;
-            var points = OMLInterface.plan(goalState, planningCenter, planningSize, planTime, lambda, widthScale, numBasisPerMeter);
+            var points = OMLInterface.plan(goalState, planningCenter, planningSize, planTime, dirScalar, lambda, widthScale, numBasisPerMeter);
             lineRenderer.positionCount = points.Count;
             int ind = 0;
             foreach (var point in points)
             {
-                lineRenderer.SetPosition(ind, new Vector3(point.x, point.y, point.z*0));
+                lineRenderer.SetPosition(ind, new Vector3(point.x, point.y, 0));
                 ind++;
             }
             Physics.autoSimulation = true;
@@ -99,7 +108,7 @@ public class CPPBehavior : MonoBehaviour
         State stateStruct = new State();
         stateStruct.x = gameObject.transform.position.x;
         stateStruct.y = gameObject.transform.position.y;
-        stateStruct.z = gameObject.transform.position.z;
+        stateStruct.theta = ((float) Math.PI)*gameObject.transform.eulerAngles.z/180.0f;
         return stateStruct; 
     }
     public void RestoreState(State state)
@@ -136,6 +145,7 @@ public class CPPBehavior : MonoBehaviour
    // }
     public bool IsStateValid(Vector3 state)
     {
+        state.z = 0; // this is hacky
         count++;
         float robotRadius = 1.0f;
         bool valid = true;

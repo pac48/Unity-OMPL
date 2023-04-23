@@ -16,7 +16,7 @@
 struct State {
   float x;
   float y;
-  float z;
+  float theta;
 };
 
 struct CArray {
@@ -35,6 +35,7 @@ struct RRTSearchInput {
   State planningCenter;
   State planningSize;
   double planTime;
+  double dirScalar;
   double lambda;
   double widthScale;
   double numBasisPerMeter;
@@ -49,6 +50,10 @@ struct RRTSearchOutput {
 void initROS();
 
 Eigen::VectorXd gaussian_rbf(const Eigen::MatrixXd &x, const Eigen::VectorXd &mu, double sigma);
+
+Eigen::VectorXd gaussian_rb_derivative(const Eigen::MatrixXd &x, const Eigen::VectorXd &mu, double sigma);
+
+std::pair<Eigen::MatrixXd, Eigen::MatrixXd> get_rbf_gradient_basis(int numberBasis, double width, int numPoints, std::pair<double, double> range);
 
 Eigen::MatrixXd get_rbf_basis(int numberBasis, double width, int numPoints, std::pair<double, double> range);
 

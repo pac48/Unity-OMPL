@@ -11,7 +11,7 @@ public struct State
 {
     public float x;
     public float y;
-    public float z;
+    public float theta;
 
 }
 
@@ -31,6 +31,7 @@ public struct RRTSearchInput
     public State planningCenter;
     public State planningSize;
 	public double planTime;
+	public double dirScalar;
 	public double lambda;
 	public double widthScale;
 	public double numBasisPerMeter;
@@ -67,7 +68,7 @@ public class UnityOMPLInterface
         Destroy(handle);
     }
 
-    public List<State> plan(State goal, Vector2 planningCenter, Vector2 planningSize, double planTime, double lambda, double widthScale, double numBasisPerMeter)
+    public List<State> plan(State goal, Vector2 planningCenter, Vector2 planningSize,  double planTime, double dirScalar, double lambda, double widthScale, double numBasisPerMeter)
     {
         State stateStruct = getState();
         State tmpState = getState();
@@ -81,6 +82,7 @@ public class UnityOMPLInterface
         input.planningSize.x = planningSize.x; 
         input.planningSize.y = planningSize.y; 
         input.planTime = planTime; 
+        input.dirScalar = dirScalar;
         input.lambda = lambda;
         input.widthScale = widthScale;
         input.numBasisPerMeter = numBasisPerMeter;
@@ -110,7 +112,7 @@ public class UnityOMPLInterface
     {
         //return false;
         //State stateStruct = (State)Marshal.PtrToStructure(statePtr, typeof(State));
-        Vector3 state = new Vector3(stateStruct.x, stateStruct.y, stateStruct.z);
+        Vector3 state = new Vector3(stateStruct.x, stateStruct.y, stateStruct.theta);
         return IsStateValidExtern(state);
     }
 
