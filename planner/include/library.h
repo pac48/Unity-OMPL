@@ -13,7 +13,36 @@
 #pragma warning Unknown dynamic link import/export semantics.
 #endif
 
-typedef bool(*FuncCallBack)();
+struct State {
+  float x;
+  float y;
+  float z;
+};
+
+struct CArray {
+  size_t data;
+  int size;
+};
+
+
+typedef bool(*ValidStateCallBack)(State&);
+typedef State(*ClosestPointCallBack)();
+
+
+struct RRTSearchInput {
+  State goal;
+  State state;
+  double planTime;
+  double lambda;
+  double widthScale;
+  double numBasisPerMeter;
+  ValidStateCallBack cb;
+};
+
+struct RRTSearchOutput {
+  CArray path;
+};
+
 
 void initROS();
 
@@ -30,9 +59,11 @@ SolveQP(const Eigen::MatrixXd &H, const Eigen::VectorXd &g, const optionalMatrix
         const optionalVector &lbA, const optionalVector &ubA, qpOASES::int_t nWSR);
 
 extern "C" {
-MY_LIB_API bool
-RRTSearch(std::intptr_t handle, std::intptr_t goalPtrIn, std::intptr_t statePtrIn, FuncCallBack cb, std::intptr_t *path,
-          int *pathLen, double planTime, double lambda, double widthScale, double numBasisPerMeter);
+//MY_LIB_API bool
+//RRTSearch(std::intptr_t handle, std::intptr_t goalPtrIn, std::intptr_t statePtrIn, ValidStateCallBack cb,
+//          std::intptr_t *path,
+//          int *pathLen, double planTime, double lambda, double widthScale, double numBasisPerMeter);
+MY_LIB_API bool RRTSearch(std::intptr_t handle, RRTSearchInput *input, RRTSearchOutput *output);
 MY_LIB_API std::intptr_t Init();
 MY_LIB_API void Destroy(std::intptr_t handle);
 }
