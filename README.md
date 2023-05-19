@@ -14,3 +14,7 @@ Then open the project (Unity-OMPL) with the Unity editor. Note: you need to have
 Then, open the Scenes folder and double click the SampleScene.unity file. Once the scene is opened,  pressthe play button to see path planning in realtime! 
 
 Note: I am using Unity version 2021.3.17f1 on Ubuntu 22.04 with ROS Humble.
+
+<p align="center">
+  <img src="resources/demo.gif" width="500" title="demo">
+</p>
