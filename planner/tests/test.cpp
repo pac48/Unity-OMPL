@@ -1,7 +1,7 @@
 #include "library.h"
 #include <Eigen/Core>
 #include <gtest/gtest.h>
-#include <plotty/matplotlibcpp.hpp>
+// #include <plotty/matplotlibcpp.hpp>
 
 
 TEST(OMPL, search) {
@@ -19,10 +19,10 @@ TEST(QP, rbf) {
     Eigen::VectorXd s = Eigen::VectorXd::LinSpaced(numPoints, range.first, range.second);
     Eigen::MatrixXd A = get_rbf_basis(s, numberBasis, width, range);
 
-    for (auto i = 0; i < A.cols(); i++) {
-        plotty::plot(A.col(i));
-    }
-    plotty::show();
+    //for (auto i = 0; i < A.cols(); i++) {
+    //    plotty::plot(A.col(i));
+    //}
+    //plotty::show();
 
 }
 
@@ -48,10 +48,10 @@ TEST(QP, fitBasis) {
     Eigen::VectorXd weights = SolveQP(H, g, {}, {lb}, {ub}, {}, {}, nWSR, {});
     Eigen::VectorXd out = M * weights;
 
-    plotty::plot(target);
-    plotty::plot(out);
+    //plotty::plot(target);
+    //plotty::plot(out);
 
-    plotty::show();
+    //plotty::show();
 
 }
 
@@ -101,18 +101,18 @@ TEST(QP, fitBasisDerivative) {
 //    std::cout << "Axd" <<Axd;
 //    std::cout << "Ayd" <<Ayd;
 
-    plotty::plot(target1, target2);
-    plotty::plot(val.col(0), val.col(1));
+    //plotty::plot(target1, target2);
+    //plotty::plot(val.col(0), val.col(1));
 
-    plotty::show();
+    //plotty::show();
 
 }
 
-TEST(PLOTTY, simple) {
-    std::vector<double> v({1, 2, 3, 4});
-    plotty::plot(v);
-    plotty::show();
-}
+//TEST(PLOTTY, simple) {
+//    std::vector<double> v({1, 2, 3, 4});
+//    plotty::plot(v);
+//    plotty::show();
+//}
 
 int main(int argc, char **argv) {
     testing::InitGoogleTest(&argc, argv);

@@ -15,28 +15,6 @@ ExternalProject_Add(
         CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}
 )
 
-#include(ExternalProject)
-#ExternalProject_Add(
-#        blasfeo
-#        GIT_REPOSITORY https://github.com/giaf/blasfeo
-#        GIT_TAG master
-#        CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=/opt/blasfeo # this is hack, but hpipm requires it?
-#)
-#
-#ExternalProject_Add(
-#        hpipm
-#        GIT_REPOSITORY https://github.com/giaf/hpipm
-#        GIT_TAG master
-#        CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}
-#)
-
-#ExternalProject_Add(
-#        hpipm-cpp
-#        GIT_REPOSITORY https://github.com/pac48/hpipm-cpp
-#        GIT_TAG add-option-to-set-cmake-library
-#        CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX} -Dblasfeo_LIBRARY=/opt/blasfeo/lib/libblasfeo.a -Dhpipm_LIBRARY=${CMAKE_INSTALL_PREFIX}/lib/libhpipm.a
-#)
-
 ExternalProject_Add(
         qpOASES
         GIT_REPOSITORY https://github.com/coin-or/qpOASES.git
@@ -50,7 +28,7 @@ ExternalProject_Add(
 
 find_package(rclcpp REQUIRED)
 find_package(Eigen3 REQUIRED)
-find_package(plotty REQUIRED)
+# find_package(plotty REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIRS})
 
 add_library(UnityLib SHARED src/library.cpp)
@@ -102,8 +80,8 @@ target_link_libraries(UnityLib ${rclcpp_LIBRARIES})
 # tests
 find_package(GTest REQUIRED)
 add_executable(tests tests/test.cpp)
-target_include_directories(tests PRIVATE include ${plotty_INCLUDE_DIRS})
-target_link_libraries(tests ${GTEST_LIBRARIES} UnityLib ${plotty_LIBRARIES})
+target_include_directories(tests PRIVATE include) # ${plotty_INCLUDE_DIRS})
+target_link_libraries(tests ${GTEST_LIBRARIES} UnityLib) # ${plotty_LIBRARIES})
 
 
 # install targets

@@ -1,0 +1,40 @@
+name: CMake
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - uses: ros-tooling/setup-ros@v0.6
+      with:
+        required-ros-distributions: humble
+    - uses: ros-tooling/action-ros-ci@v0.3
+      with:
+        target-ros2-distro: humble
+
+    - name: Configure CMake
+      # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
+      # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
+      run: |
+        source /opt/ros/humble/setup.bash
+        cd ${{github.workspace}}/planner
+        cmake -B build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+
+    - name: Build
+      # Build your program with the given configuration
+      run: |
+        source /opt/ros/humble/setup.bash
+        cd ${{github.workspace}}/planner 
+        cmake --build build --config ${{env.BUILD_TYPE}}
